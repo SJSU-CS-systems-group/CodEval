@@ -14,7 +14,7 @@ declare -a cmps
 testcase_total=0
 while read -r line args
 do
-    if [ "$line" = "T" -o "$line" = "HT" ]
+    if [ "$line" = "T" -o "$line" = "HT" -o "$line" = "TCMD" ]
     then
         testcase_total=$((testcase_total+1))
     fi
@@ -74,6 +74,10 @@ check_test () {
         if [ "$testcase_line" = "HT" ]
         then
             echo -e "    Test Case is Hidden."
+            if [ -n "$HINT" ]
+                then
+                echo -e "HINT: $HINT"
+            fi
         else
             echo -e "    Command ran: $test_args"
             cat difflog
@@ -106,6 +110,7 @@ if [ "$line" = "C" ]
 elif [ "$line" = "T" ] || [ "$line" = "HT" ]
     then
     check_test
+    unset HINT
     test_args=$args
     testcase_count=$((testcase_count + 1))
     testcase_line=$line
@@ -131,10 +136,14 @@ elif [ "$line" = "CMD" ]
 elif [ "$line" = "TCMD" ]
     then
     check_test
+    testcase_count=$((testcase_count + 1))
+    echo -ne "\nTest Case $testcase_count of $testcase_total: "
     if ! eval $args
     then
         echo FAILED
         exit
+    else
+        echo PASSED
     fi
 elif [ "$line" = "CMP" ]
     then
@@ -149,6 +158,9 @@ elif [ "$line" = "CF" ]
 elif [ "$line" = "X" ]
     then
     expected_exit_code=$args
+elif [ "$line" = "HINT" ]
+    then
+    HINT="$args"
 elif [ "$line" = "TO" ]
     then
     timeout_val=$args
