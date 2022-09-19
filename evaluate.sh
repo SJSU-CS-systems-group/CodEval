@@ -20,7 +20,7 @@ do
     fi
 done < testcases.txt
 
-exec 3>&1
+exec 3> script_output.txt
 script_output() {
     echo $@ >&3
 }
@@ -81,11 +81,13 @@ check_test () {
         else
             echo -e "    Command ran: $test_args"
             cat difflog
+            cat script_output.txt
         fi
         exit 2
     fi
     cmps=()
     test_args=""
+    > script_output.txt
     rm -rf fileinput expectedoutput expectederror
     touch fileinput expectedoutput expectederror
 }
