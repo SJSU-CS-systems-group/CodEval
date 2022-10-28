@@ -1,0 +1,70 @@
+#!/bin/bash 
+
+print_error=0
+fileName=""
+functionName=""
+lineNumber=0
+errorKind=""
+errorDescription=""
+frameCounter=0
+
+# Declare array to store list of functions
+declare -a frames=(
+[0]=""
+)
+
+while read -r line args
+  do
+    if [ "${line:0:7}" = "<error>" ]
+    then
+        print_error=1
+    fi
+    if [ "$print_error" -eq 1 ]
+    then
+        if [ "${line:0:8}" = "</frame>" ]
+        then
+            statement="In function: $functionName at line number: $lineNumber"
+             frames[frameCounter]=$statement
+             frameCounter=$((frameCounter+1))
+         fi 
+        if [ "${line:0:6}" = "<file>" ]
+        then
+            fileName=${line:6:-7}
+        fi
+        if [ "${line:0:4}" = "<fn>" ]
+        then
+            functionName=${line:4:-5}
+        fi
+        if [ "${line:0:6}" = "<line>" ]
+        then
+            lineNumber=${line:6:-7}
+        fi 
+        if [ "${line:0:6}" = "<kind>" ]
+        then
+            errorKind=${line:6:-7}
+        fi 
+        if [ "${line:0:6}" = "<text>" ]
+        then
+            errorDescription=${line:6:2}
+            errorDescription+=${args:0:-7}
+        fi
+        if [ "${line:0:8}" = "</error>" ]
+        then
+            print_error=0
+            echo "In file: $fileName . "
+            for frameItr in "${frames[@]}"
+            do
+              echo "$frameItr"
+            done 
+           # Deleting the frame eleemnts
+             for delFrameItr in ${!frames[@]}
+             do
+               unset frames[delFrameItr]
+             done 
+             frameCounter=0 
+             echo "Type of Error: $errorKind"
+            echo -e "Error: $errorDescription\\n" 
+         fi 
+     fi
+done < $1 
+
