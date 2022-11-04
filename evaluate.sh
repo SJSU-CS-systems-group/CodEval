@@ -49,6 +49,7 @@ check_test () {
     if [ -s difflog ]
     then
         passed=no
+        ./parsediff difflog > ./evaluationLogs/logOfDiff
     fi
     if [ "$retval" -ne "$expected_exit_code" ]
     then
@@ -80,16 +81,22 @@ check_test () {
             fi
         else
             echo -e "    Command ran: $test_args"
-            cat difflog
+            for file in ./evaluationLogs/*
+            do
+               cat $file
+            done 
         fi
         exit 2
     fi
     cmps=()
     test_args=""
+    rm -rf ./evaluationLogs
+    mkdir ./evaluationLogs 
     rm -rf fileinput expectedoutput expectederror
     touch fileinput expectedoutput expectederror
 }
-
+rm -rf ./evaluationLogs
+mkdir ./evaluationLogs
 rm -rf fileinput expectedoutput expectederror
 touch fileinput expectedoutput expectederror
 
@@ -141,6 +148,10 @@ elif [ "$line" = "TCMD" ]
     if ! eval $args
     then
         echo FAILED
+        for file in ./evaluationLogs/*
+        do
+           cat $file
+        done 
         exit
     else
         echo PASSED
