@@ -182,6 +182,7 @@ class CanvasHandler:
                                     copy_tree(temp_fixed, tmpdir)
                                     shutil.copy("evaluate.sh", f"{tmpdir}/evaluate.sh")
                                     shutil.copy("runvalgrind.sh", f"{tmpdir}/runvalgrind.sh")
+                                    shutil.copy("parsediff", f"{tmpdir}/parsediff")
 
                                     output = self.evaluate(tmpdir)
                                     message = output.decode();
