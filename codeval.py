@@ -16,6 +16,7 @@ CODEVAL_SUFFIX = ".codeval"
 
 show_debug = False
 copy_tmpdir = False
+compile_timeout = 20
 
 def _now():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -150,7 +151,9 @@ class CanvasHandler:
                     extra_files = self.get_file(codeval_folder, file_name, f"{dest_dir}/extrafiles.zip")
                     unzip(extra_files, dest_dir,  delete=True)
                     debug(f'unzipped {file_name}')
-
+                elif line_args[0] == "CTO":
+                    global compile_timeout
+                    compile_timeout = int(line_args[1])
                 elif line_args[0] == "USING":
                     file_name = line_args[1]
                     if file_name not in os.listdir(dest_dir):
@@ -258,7 +261,7 @@ class CanvasHandler:
             precommand = self.parser["RUN"]["precommand"]
             debug(f"running precommand - {precommand}")
             p = subprocess.Popen(precommand, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = p.communicate(timeout=20)
+            out, err = p.communicate(timeout=compile_timeout)
             debug(f"precommand result - {out}")
             if err:
                 error(err)
@@ -272,12 +275,12 @@ class CanvasHandler:
         command = command.replace("SUBMISSIONS", tmpdir)
         debug(f"command after {command}")
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        try: 
-            out, err = p.communicate(timeout=20)
+        try:
+            out, err = p.communicate(timeout=compile_timeout)
         except subprocess.TimeoutExpired:
             p.kill()
             out, err = p.communicate()
-            out += b"\nTOOK LONGER THAN 20 seconds to run. FAILED\n"
+            out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
         return out
 
 
