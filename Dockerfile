@@ -11,4 +11,4 @@ ENV PATH="${PATH}:/opt/apache-maven-3.8.6/bin"
 
 RUN apt-get -y install sudo
 
-VOLUME /submissions
+VOLUME ["/root/.m2","/submissions"]
