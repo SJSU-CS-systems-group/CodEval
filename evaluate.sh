@@ -106,7 +106,9 @@ rm -rf fileinput expectedoutput expectederror
 touch fileinput expectedoutput expectederror
 
 
-while read -r line args; do
+while read -r fullline; do
+line="${fullline%% *}"
+args="${fullline#* }"
 if [ "$line" = "C" ]
    then
    if [ "$testcase_count" -ne 0 ]
@@ -128,19 +130,19 @@ elif [ "$line" = "T" ] || [ "$line" = "HT" ]
     testcase_line=$line
 elif [ "$line" = "I" ]
     then
-    echo $args >> fileinput
+    echo "$args" >> fileinput
 elif [ "$line" = "IF" ]
     then
     cat "$args" >> fileinput
 elif [ "$line" = "O" ]
     then
-    echo $args >> expectedoutput
+    echo "$args" >> expectedoutput
 elif [ "$line" = "OF" ]
     then
     cat "$args" >> expectedoutput
 elif [ "$line" = "E" ]
     then
-    echo $args >> expectederror
+    echo "$args" >> expectederror
 elif [ "$line" = "CMD" ]
     then
     check_test
