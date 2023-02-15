@@ -3,7 +3,7 @@
 # this script assumes the presence of testcases.txt
 
 timeout_val=10
-expected_exit_code=0
+expected_exit_code=-1
 testcase_count=0
 test_args=""
 pass=0
@@ -44,14 +44,14 @@ check_test () {
     fi
     rm -f difflog
     touch difflog
-    diff -U1 ./youroutput ./expectedoutput | cat -te | head -22 > difflog
-    diff -U1 ./yourerror ./expectederror | cat -te | head -22 >> difflog
+    diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22 > difflog
+    diff -U1 -a ./yourerror ./expectederror | cat -te | head -22 >> difflog
     if [ -s difflog ]
     then
         passed=no
         ./parsediff difflog > ./evaluationLogs/logOfDiff
     fi
-    if [ "$retval" -ne "$expected_exit_code" ]
+    if [ "$expected_exit_code" -ne "-1" ] && [ "$retval" -ne "$expected_exit_code" ]
     then
         passed=no
         echo -e "    Exit Code failure: expected $expected_exit_code got $retval"
@@ -80,6 +80,10 @@ check_test () {
                 echo -e "HINT: $HINT"
             fi
         else
+            if [ -n "$HINT" ]
+                then
+                echo -e "HINT: $HINT"
+            fi
             echo -e "    Command ran: $test_args"
             for file in ./evaluationLogs/*
             do
@@ -90,6 +94,7 @@ check_test () {
     fi
     cmps=()
     test_args=""
+    expected_exit_code=-1
     rm -rf ./evaluationLogs
     mkdir ./evaluationLogs 
     rm -rf fileinput expectedoutput expectederror
@@ -166,6 +171,13 @@ elif [ "$line" = "CF" ]
     func="${argarray[0]}"
     filelist="${argarray[*]:1}"
     grep "[^[:alpha:]]$func[[:space:]]*(" $filelist &> /dev/null && echo "used $func PASSED" || echo "not using $func FAILED"
+elif [ "$line" = "NCF" ]
+    then
+    check_test
+    argarray=($args)
+    func="${argarray[0]}"
+    filelist="${argarray[*]:1}"
+    grep "[^[:alpha:]]$func[[:space:]]*(" $filelist &> /dev/null && echo "used $func FAILED" || echo "not using $func PASSED"
 elif [ "$line" = "X" ]
     then
     expected_exit_code=$args
@@ -180,3 +192,4 @@ done < testcases.txt
 
 ## Last test case to be executed.
 check_test
+echo took $SECONDS seconds
