@@ -15,6 +15,7 @@ CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
 
 show_debug = False
+copy_tmpdir = False
 
 def _now():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -213,6 +214,9 @@ class CanvasHandler:
                                     message = str(e)
                                     info(f"Could not evaluate submission {submission.id} due to error: {e}")
 
+                                if copy_tmpdir:
+                                    info(f"copying {tmpdir} {os.path.basename(tmpdir)}")
+                                    shutil.copytree(tmpdir, os.path.basename(tmpdir))
                                 if dry_run:
                                     info(f"would have said {message} to {submission.user['name']}")
                                 else:
@@ -302,7 +306,8 @@ def unzip(filepath, dir, delete=False):
               help="Verbose actions")
 @click.option("--force/--no-force", default=False, show_default=True,
               help="Grade submissions even if already graded")
-def grade_course_submissions(course_name, dry_run, verbose, force):
+@click.option("--copytmpdir/--no-copytmpdir", default=False, show_default=True, help="copy tmpdirs to current directory")
+def grade_course_submissions(course_name, dry_run, verbose, force, copytmpdir):
     """
     Grade unsubmitted graded submission in the given course.
     """
@@ -313,6 +318,8 @@ def grade_course_submissions(course_name, dry_run, verbose, force):
     global show_debug
     show_debug = verbose
     canvasHandler.grade_submissions(course_name, dry_run, force)
+    global copy_tmpdir
+    copy_tmpdir = copytmpdir
 
 
 if __name__ == "__main__":
