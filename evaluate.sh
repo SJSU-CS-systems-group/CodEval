@@ -133,7 +133,7 @@ if [ "$line" = "C" ]
    if [ $? -ne 0 ]
    then
        head -10 compilelog
-   exit
+   exit 1
    fi
 elif [ "$line" = "T" ] || [ "$line" = "HT" ]
     then
@@ -173,7 +173,7 @@ elif [ "$line" = "TCMD" ]
         do
            cat $file
         done 
-        exit
+        exit 1
     else
         echo PASSED
     fi
@@ -203,6 +203,9 @@ elif [ "$line" = "HINT" ]
 elif [ "$line" = "TO" ]
     then
     timeout_val=$args
+elif [ "$line" = "--DT--" ]
+    then
+    break
 fi
 done < testcases.txt
 
