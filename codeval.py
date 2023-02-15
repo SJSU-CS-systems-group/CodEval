@@ -8,33 +8,13 @@ import requests
 import zipfile
 import subprocess
 import tempfile
-import time
 import traceback
+from commons import *
+from distributed import run_distributed_tests
 
 
-show_debug = False
 compile_timeout = 20
-
-def _now():
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
-def debug(message):
-    if show_debug:
-        click.echo(click.style(f"{_now()} D {message}", fg='magenta'))
-
-def error(message, exit=False):
-    click.echo(click.style(f"{_now()} E {message}", fg='red'))
-    if exit: exit(2)
-    raise EnvironmentError(message)
-
-
-def info(message):
-    click.echo(click.style(f"{_now()} I {message}", fg='blue'))
-
-
-def warn(message):
-    click.echo(click.style(f"{_now()} W {message}", fg='yellow'))
-
+has_distributed_tests = False
 
 class CanvasHandler:
     def __init__(self):
@@ -57,11 +37,15 @@ class CanvasHandler:
 
     def _check_config(self, section, key):
         if section not in self.parser:
-            error(f"did not find [{section}] section in {self.config_file}.")
+            error(f"did not find [{section}] section in {self.parser.config_file}.")
             sys.exit(1)
         if key not in self.parser[section]:
-            error(f"did not find {key} in [{section}] in {self.config_file}.")
+            error(f"did not find {key} in [{section}] in {self.parser.config_file}.")
             sys.exit(1)
+
+    def _check_distributed_config(self):
+        for key in ['dist_command', 'host_ip']:
+            self._check_config('RUN', key)
 
     def get_course(self, name, is_active=True):
         ''' find one course based on partial match '''
@@ -156,6 +140,11 @@ class CanvasHandler:
                     else:
                         self.executable = file_name
                         debug(f"main executable set to {file_name}. this will replace execute.sh in the config command.")
+                elif line_args[0] == "--DT--":
+                    global has_distributed_tests
+                    has_distributed_tests = True
+                    self._check_distributed_config()
+
 
     def should_check_submission(self, submission):
         '''check whether a submission needs to be evaluated'''
@@ -229,7 +218,7 @@ class CanvasHandler:
         ''' run commands specified in codeval.ini'''
         command = self.parser["RUN"]["command"]
         if not command:
-            error(f"commands section under [RUN] in {config_file} is empty")
+            error(f"commands section under [RUN] in {self.parser.config_file} is empty")
 
         if "precommand" in self.parser['RUN']:
             precommand = self.parser["RUN"]["precommand"]
@@ -251,11 +240,26 @@ class CanvasHandler:
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         try:
             out, err = p.communicate(timeout=compile_timeout)
+            if p.returncode != 0:
+                return out
         except subprocess.TimeoutExpired:
             p.kill()
             out, err = p.communicate()
             out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+            return out
+        if has_distributed_tests:
+            out += self.evaluate_distributed_tests(tmpdir)
         return out
+
+    def evaluate_distributed_tests(self, tmpdir):
+        '''evaluate distributed tests'''
+        command = self.parser["RUN"]["dist_command"]
+        host_ip = self.parser["RUN"]["host_ip"]
+        return run_distributed_tests(command, host_ip, tmpdir, f"{tmpdir}/testcases.txt")
+
+
+
+
 
 
 def unzip(filepath, dir, delete=False):
@@ -289,10 +293,8 @@ def grade_course_submissions(course_name, dry_run, verbose, force):
     """
     if dry_run:
         warn("This is a dry run. No updates to canvas will be made.")
-
     canvasHandler = CanvasHandler()
-    global show_debug
-    show_debug = verbose
+    set_debug(verbose)
     canvasHandler.grade_submissions(course_name, dry_run, force)
 
 
