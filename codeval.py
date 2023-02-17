@@ -188,7 +188,10 @@ class CanvasHandler:
                                 force or self.should_check_submission(submission)):
                             with tempfile.TemporaryDirectory(prefix="codeval", suffix="submission") as tmpdir:
                                 debug(f"tmpdir is {tmpdir}")
-                                subprocess.call(["setfacl", "-d", "-m", "o::rwx", tmpdir])
+                                if sys.platform == 'darwin':
+                                    subprocess.call(["chmod", "-R", "o+rwx", tmpdir])
+                                else:
+                                    subprocess.call(["setfacl", "-d", "-m", "o::rwx", tmpdir])
                                 message = 'problem grading assignment'
                                 try:
                                     debug(f"checking submission by user {submission.user['name']}.")
