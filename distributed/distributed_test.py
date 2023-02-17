@@ -137,6 +137,7 @@ def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
                         out += bytes(message + "\n", "utf-8")
                         if current_distributed_testcase.test_hints[-1] is not None:
                             out += bytes("Hint: " + current_distributed_testcase.test_hints[-1] + "\n", "utf-8")
+                        out += bytes("\n".join(result.stdout.decode("utf-8").split("\n")[-10:]) + "\n", "utf-8")
                         return out
                     else:
                         message = "Distributed Test %s of %s: PASSED" % (str(current_testcase_count), str(testcases_count))
@@ -213,9 +214,8 @@ def run_command(command, synchronous, exit_if_fail):
         result = subprocess.run(command, shell=True, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT)
         if result.returncode != 0:
             if exit_if_fail:
-                warn("Command failed %s: %s" % (command, result.stdout.decode("utf-8")))
-                warn("Exit code: %d" % result.returncode)
-                error("Command failed: %s" % result.stdout.decode("utf-8"))
+                warn("Command failed: %s" % command)
+                error(result.stdout.decode("utf-8"))
             else:
                 warn("Command failed %s: %s" % (command, result.stdout.decode("utf-8")))
     else:
