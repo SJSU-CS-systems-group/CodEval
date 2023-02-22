@@ -1,1 +1,1 @@
-from .distributed_test import run_distributed_tests
+from .main import run_distributed_tests
