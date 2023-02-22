@@ -15,10 +15,10 @@ def debug(message):
     if show_debug:
         click.echo(click.style(f"{_now()} D {message}", fg='magenta'))
 
-def error(message, exit=False):
+def error(message, raise_exception=True):
     click.echo(click.style(f"{_now()} E {message}", fg='red'))
-    if exit: exit(2)
-    raise EnvironmentError(message)
+    if raise_exception:
+        raise EnvironmentError(message)
 
 
 def info(message):
