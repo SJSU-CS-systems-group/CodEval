@@ -46,7 +46,7 @@ def _kill_docker_container(
 ) -> None:
     ''' Asynchronously kill a docker container and remove it '''
     # Run docker rm irrespective of whether docker kill succeeds or not.
-    _run_command("docker kill %s || true && docker rm %s " % (
+    _run_command("docker stop %s || true && docker rm %s " % (
         container_identifier,
         container_identifier
     ), wait_to_kill)
@@ -220,7 +220,7 @@ def run_test_command(
         message = "Distributed Test %s of %s: PASSED" % (
             str(test_number), str(testcases_count))
         out += bytes(message + "\n", "utf-8")
-        info(message)
+        debug(message)
     return result.returncode == 0, out
 
 

@@ -104,7 +104,7 @@ def run_homogenous_tests(
 
         # Cleanup before next test group
         for i in range(test_group.total_machines):
-            kill_running_docker_container("replica%d" % i, wait_to_kill=False)
+            kill_running_docker_container("replica%d" % i, wait_to_kill=True)
         debug("Killed all running containers")
 
         # No need to go to next test group if current failed
