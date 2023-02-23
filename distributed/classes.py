@@ -13,6 +13,7 @@ class DistributedTests:
     tests_setup_commands: list
     cleanup_commands: list
     test_groups: list
+    timeout: int
 
     def __init__(self, docker_command, host_ip, temp_dir, testcase_file):
         self.docker_command = docker_command
@@ -24,6 +25,7 @@ class DistributedTests:
         self.tests_setup_commands = []
         self.cleanup_commands = []
         self.test_groups = []
+        self.timeout = 60
 
     def add_test_group(self, test_group: "TestGroup"):
         self.test_groups.append(test_group)
