@@ -1,4 +1,5 @@
 from commons import *
+from timeout import timeout
 from .classes import DistributedTests
 from .homogenous import run_homogenous_tests
 
@@ -58,6 +59,8 @@ def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
 
                 if line_args[0] == "PORTS":
                     distributed_tests.ports_count_to_expose = int(line_args[1])
+                elif line_args[0] == "GTO":
+                    distributed_tests.timeout = int(line_args[1])
                 elif line_args[0] in ["ECMD", "ECMDT"]:
                     if current_test_group is not None:
                         current_test_group.commands.append(line)
@@ -76,6 +79,7 @@ def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
                 elif current_test_group is None:
                     error("Unexpected %s before DTC in test spec file" %
                           line_args[0])
+
                 if line_args[0] in ["ICMD", "ICMDT"]:
                     current_test_group.commands.append(line)
                 elif line_args[0] == "HINT":
@@ -97,7 +101,13 @@ def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
             current_test_group = None
 
         # Running tests
-        passed, resultlog = run_homogenous_tests(distributed_tests)
+        try:
+            with timeout(distributed_tests.timeout):
+                passed, resultlog = run_homogenous_tests(distributed_tests)
+        except TimeoutError:
+            passed = False
+            resultlog = bytes(
+                "Test timed out after %d seconds" % distributed_tests.timeout, "utf-8")
         out += resultlog
     except EnvironmentError as e:
         out += bytes(str(e) + "\n", "utf-8")
