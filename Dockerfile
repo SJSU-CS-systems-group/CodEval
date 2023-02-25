@@ -9,4 +9,5 @@ RUN wget https://archive.apache.org/dist/maven/maven-3/3.8.6/binaries/apache-mav
 RUN tar xzvf apache-maven-3.8.6-bin.tar.gz -C/opt/
 ENV PATH="${PATH}:/opt/apache-maven-3.8.6/bin"
 
+RUN apt-get -y install sudo
 VOLUME /submissions

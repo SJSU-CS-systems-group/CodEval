@@ -11,8 +11,11 @@ import tempfile
 import time
 import traceback
 
+CODEVAL_FOLDER = "course files/CodEval"
+CODEVAL_SUFFIX = ".codeval"
 
 show_debug = False
+copy_tmpdir = False
 
 def _now():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -56,10 +59,10 @@ class CanvasHandler:
 
     def _check_config(self, section, key):
         if section not in self.parser:
-            error(f"did not find [{section}] section in {self.config_file}.")
+            error(f"did not find [{section}] section in {self.parser.config_file}.")
             sys.exit(1)
         if key not in self.parser[section]:
-            error(f"did not find {key} in [{section}] in {self.config_file}.")
+            error(f"did not find {key} in [{section}] in {self.parser.config_file}.")
             sys.exit(1)
 
     def get_course(self, name, is_active=True):
@@ -96,14 +99,14 @@ class CanvasHandler:
         return course_list
 
     @staticmethod
-    def get_assignments(course):
+    def get_assignments(course, specs):
         all_assignments = course.get_assignments()
         for assignment in all_assignments:
-            if assignment.name.startswith("[CE]"):
+            if assignment.name in specs:
                 debug(f'grading {assignment.name}')
                 yield assignment
             else:
-                debug(f'skipping {assignment.name} (no [CE])')
+                debug(f'skipping {assignment.name} (no {assignment.name}{CODEVAL_SUFFIX} file)')
 
 
     def download_attachment(self, directory, a):
@@ -124,12 +127,14 @@ class CanvasHandler:
         os.chdir(curPath)
         return os.path.join(directory, fname)
 
-    def get_valid_test_file(self, course_name, assignment_name, dest_dir):
+    def get_valid_test_file(self, course_name, codeval_folder, assignment_name, dest_dir):
         '''download testcase file and extra files required for evaluate.sh to run'''
         debug(f'getting {assignment_name} from {course_name}')
-        testcase_path = self.get_file(course_name, assignment_name + ".txt", f"{dest_dir}/testcases.txt")
+        test_file = f"{assignment_name}{CODEVAL_SUFFIX}"
+        testcase_path = self.get_file(codeval_folder, test_file, f"{dest_dir}/testcases.txt")
         if not testcase_path:
-            error(f"Cannot process assignment - {assignment_name} as the testcase file doesn't exist.")
+            error(f"Cannot process assignment - {assignment_name} as {test_file} doesn't exist.")
+            raise FileNotFoundError(test_file)
         debug(f"testcase file downloaded at {testcase_path}")
         with open(testcase_path, "r") as f:
             self.executable = None
@@ -142,7 +147,7 @@ class CanvasHandler:
                 if line_args[0] == "Z":
                     file_name = "".join(line_args[1:])
                     debug(f'downloading {file_name}')
-                    extra_files = self.get_file(course_name, file_name, f"{dest_dir}/extrafiles.zip")
+                    extra_files = self.get_file(codeval_folder, file_name, f"{dest_dir}/extrafiles.zip")
                     unzip(extra_files, dest_dir,  delete=True)
                     debug(f'unzipped {file_name}')
 
@@ -164,17 +169,34 @@ class CanvasHandler:
                     return False
         return True
 
+    def get_assignment_specs(self, course):
+        '''get all the possible CodEval specs for a course'''
+        specs = {}
+        for folder in course.get_folders():
+            if folder.full_name == CODEVAL_FOLDER:
+                for spec in folder.get_files():
+                    if spec.display_name.endswith(CODEVAL_SUFFIX):
+                        name = spec.display_name[:-len(CODEVAL_SUFFIX)]
+                        specs[name] = spec
+            return folder, specs
+        return None, None
+
     def grade_submissions(self, course_name, dry_run, force):
         course = self.get_course(course_name)
-        for assignment in self.get_assignments(course):
+        codeval_folder, codeval_specs = self.get_assignment_specs(course)
+        if not codeval_specs:
+            error(f"no *{CODEVAL_SUFFIX} files found in {CODEVAL_FOLDER}")
+            return
+        for assignment in self.get_assignments(course, codeval_specs):
             with tempfile.TemporaryDirectory(prefix="codeval", suffix="fixed") as temp_fixed:
                 try:
-                    self.get_valid_test_file(course_name, assignment.name, temp_fixed)
+                    self.get_valid_test_file(course_name, codeval_folder, assignment.name, temp_fixed)
                     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
                         if hasattr(submission, 'attachments') and (
                                 force or self.should_check_submission(submission)):
                             with tempfile.TemporaryDirectory(prefix="codeval", suffix="submission") as tmpdir:
                                 debug(f"tmpdir is {tmpdir}")
+                                subprocess.call(["setfacl", "-d", "-m", "o::rwx", tmpdir])
                                 message = 'problem grading assignment'
                                 try:
                                     debug(f"checking submission by user {submission.user['name']}.")
@@ -182,6 +204,8 @@ class CanvasHandler:
                                     copy_tree(temp_fixed, tmpdir)
                                     shutil.copy("evaluate.sh", f"{tmpdir}/evaluate.sh")
                                     shutil.copy("runvalgrind.sh", f"{tmpdir}/runvalgrind.sh")
+                                    shutil.copy("parsediff", f"{tmpdir}/parsediff")
+                                    shutil.copy("parsevalgrind", f"{tmpdir}/parsevalgrind")
 
                                     output = self.evaluate(tmpdir)
                                     message = output.decode();
@@ -190,6 +214,9 @@ class CanvasHandler:
                                     message = str(e)
                                     info(f"Could not evaluate submission {submission.id} due to error: {e}")
 
+                                if copy_tmpdir:
+                                    info(f"copying {tmpdir} {os.path.basename(tmpdir)}")
+                                    shutil.copytree(tmpdir, os.path.basename(tmpdir))
                                 if dry_run:
                                     info(f"would have said {message} to {submission.user['name']}")
                                 else:
@@ -197,6 +224,7 @@ class CanvasHandler:
                                     submission.edit(comment={'text_comment': f'[AG]\n{message}'})
 
                 except Exception as e:
+                    traceback.print_exc()
                     warn(f"Could not process {assignment.name} due to error. skipping assignment: {e}")
 
     def download_submission_attachments(self, submission, submission_dir):
@@ -204,18 +232,17 @@ class CanvasHandler:
             attachment_path = self.download_attachment(submission_dir, attachment)
             unzip(attachment_path, submission_dir, delete=True)
 
-    def get_file(self, course_name, file_name, outpath=""):
+    def get_file(self, codeval_folder, file_name, outpath=""):
         '''get file from the course in canvas'''
-        course = self.get_course(course_name)
-        files = course.get_files()
-        filtered_files = [file for file in files if file_name == file.display_name]
+        files = codeval_folder.get_files()
+        filtered_files = [file for file in files if file.display_name == file_name]
         if not file_name:
             error("No file name was given.")
         if len(filtered_files) == 0:
-            error(f"{file_name} file not found in canvas.")
+            error(f"{file_name} file not found in {CODEVAL_FOLDER}.")
         if len(filtered_files) > 1:
-            error(f"Multiple files found matching {file_name}.")
-        file = course.get_file(filtered_files[0].id)
+            error(f"Multiple files found matching {file_name}: {[f.display_name for f in filtered_files]}.")
+        file = filtered_files[0]
         filepath = outpath if outpath else file.display_name
         file.download(filepath)
         debug(f"{file_name} downloaded at {filepath}.")
@@ -279,7 +306,8 @@ def unzip(filepath, dir, delete=False):
               help="Verbose actions")
 @click.option("--force/--no-force", default=False, show_default=True,
               help="Grade submissions even if already graded")
-def grade_course_submissions(course_name, dry_run, verbose, force):
+@click.option("--copytmpdir/--no-copytmpdir", default=False, show_default=True, help="copy tmpdirs to current directory")
+def grade_course_submissions(course_name, dry_run, verbose, force, copytmpdir):
     """
     Grade unsubmitted graded submission in the given course.
     """
@@ -290,6 +318,8 @@ def grade_course_submissions(course_name, dry_run, verbose, force):
     global show_debug
     show_debug = verbose
     canvasHandler.grade_submissions(course_name, dry_run, force)
+    global copy_tmpdir
+    copy_tmpdir = copytmpdir
 
 
 if __name__ == "__main__":
