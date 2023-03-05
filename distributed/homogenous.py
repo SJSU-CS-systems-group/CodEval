@@ -6,6 +6,7 @@ from .utils import *
 
 def run_homogenous_tests(
     distributed_tests: DistributedTests,
+    student_name: str,
 ) -> Tuple[bool, bytes]:
     """Run homogenous tests"""
     passed = True
@@ -18,9 +19,12 @@ def run_homogenous_tests(
     current_testcase_number = 0
     has_homogenous_tests = False
 
+    student_container_name = student_name.replace(" ", "_").lower()[:10]
+
     placeholder_replacements = {
         'host_ip': distributed_tests.host_ip,
-        'temp_dir': distributed_tests.temp_dir
+        'temp_dir': distributed_tests.temp_dir,
+        'username': student_container_name
     }
 
     # Run commands to setup tests

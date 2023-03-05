@@ -116,10 +116,15 @@ def run_distributed_tests(
             distributed_tests.add_test_group(current_test_group)
             current_test_group = None
 
+        student_name = distributed_tests_data['student_name']
+
         # Running tests
         try:
             with timeout(distributed_tests.timeout):
-                passed, resultlog = run_homogenous_tests(distributed_tests)
+                passed, resultlog = run_homogenous_tests(
+                    distributed_tests,
+                    student_name
+                )
         except TimeoutError:
             passed = False
             resultlog = bytes(
@@ -130,7 +135,6 @@ def run_distributed_tests(
         # if passed:
         #     assignment_id = distributed_tests_data['assignment_id']
         #     student_id = distributed_tests_data['student_id']
-        #     student_name = distributed_tests_data['student_name']
         #     submitted_at = distributed_tests_data['submitted_at']
         #     attachments = distributed_tests_data['attachments']
         #     try:

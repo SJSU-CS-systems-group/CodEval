@@ -68,9 +68,13 @@ def run_command_in_containers(
     command = command.replace("HOST_IP", placeholder_replacements['host_ip'])
     no_error = True
     debug("Running command %s in containers %s" % (command, container_names))
-    for container_name in container_names:
+    for idx, container_name in enumerate(container_names):
         ports_used = get_container_by_name(container_name).ports
         replica_command = command
+        replica_command = replica_command.replace(
+            "USERNAME",
+            placeholder_replacements['username'] + '_' + str(idx)
+        )
         port_index = 0
         while "PORT_" in replica_command:
             if port_index >= len(ports_used):
@@ -160,6 +164,8 @@ def run_external_command(
     out = b''
     bash_command = bash_command.replace("HOST_IP",
                                         placeholder_replacements['host_ip'])
+    bash_command = bash_command.replace("TEMP_DIR",
+                                        placeholder_replacements['temp_dir'])
     debug("Running %s %s command on host: %s" % (
         'halting' if fail_on_error else 'non-halting',
         'sync' if is_sync else 'async',
@@ -217,7 +223,7 @@ def run_test_command(
         else:
             out += bytes("Command ran: " + command + "\n", "utf-8")
             out += bytes("\n".join(result.stdout.decode("utf-8")
-                               .split("\n")[-10:]) + "\n", "utf-8")
+                                   .split("\n")[-10:]) + "\n", "utf-8")
     else:
         message = "Distributed Test %s of %s: PASSED" % (
             str(test_number), str(testcases_count))
