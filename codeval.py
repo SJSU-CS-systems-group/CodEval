@@ -177,7 +177,7 @@ class CanvasHandler:
                                         'assignment_id': str(assignment.id),
                                         'student_id': str(submission.user['id']),
                                         'student_name': submission.user['name'],
-                                        'submitted_at': datetime.datetime.fromisoformat(submission.submitted_at),
+                                        'submitted_at': datetime.datetime.strptime(submission.submitted_at, "%Y-%m-%dT%H:%M:%S%z"),
                                         'attachments': submission.attachments,
                                     }
                                     output = self.evaluate(temp_fixed, tmpdir, distributed_tests_data)
