@@ -12,7 +12,7 @@ def kill_stale_and_run_docker_container(
 ) -> bytes:
     ports_subcommand = ""
     container = ContainerData(container_name)
-    for i in range(ports_count):
+    for _ in range(ports_count):
         port = get_free_port()
         container.ports.append(port)
         ports_subcommand += "-p %d:%d " % (port, port)
@@ -214,7 +214,9 @@ def run_test_command(
         out += bytes(message + "\n", "utf-8")
         if hint is not None:
             out += bytes("Hint: " + hint + "\n", "utf-8")
-        out += bytes("\n".join(result.stdout.decode("utf-8")
+        else:
+            out += bytes("Command ran: " + command + "\n", "utf-8")
+            out += bytes("\n".join(result.stdout.decode("utf-8")
                                .split("\n")[-10:]) + "\n", "utf-8")
     else:
         message = "Distributed Test %s of %s: PASSED" % (

@@ -6,6 +6,7 @@ class DistributedTests:
     """Class to store distributed tests"""
     docker_command: str
     host_ip: str
+    temp_fixed_dir: str
     temp_dir: str
     testcase_file: str
     ports_count_to_expose: int
@@ -15,9 +16,17 @@ class DistributedTests:
     test_groups: list
     timeout: int
 
-    def __init__(self, docker_command, host_ip, temp_dir, testcase_file):
+    def __init__(
+        self,
+        docker_command,
+        host_ip,
+        temp_fixed_dir,
+        temp_dir,
+        testcase_file
+    ):
         self.docker_command = docker_command
         self.host_ip = host_ip
+        self.temp_fixed_dir = temp_fixed_dir
         self.temp_dir = temp_dir
         self.testcase_file = testcase_file
         self.testcases_count = 0

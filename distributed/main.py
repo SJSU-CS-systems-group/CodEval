@@ -2,22 +2,38 @@ from commons import *
 from timeout import timeout
 from .classes import DistributedTests
 from .homogenous import run_homogenous_tests
+# from .heterogenous import run_heterogenous_tests
+# from .db import MongoConnection, DBConnectionException
 
 
-def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
+def run_distributed_tests(
+    docker_command: str,
+    host_ip: str,
+    temp_fixed_dir: str,
+    temp_dir: str,
+    testcase_file: str,
+    distributed_tests_data: dict,
+) -> bytes:
     debug("Docker command before: %s" % docker_command)
     debug("Host ip: %s" % host_ip)
     debug("Temp directory: %s" % temp_dir)
     debug("Testcase file: %s" % testcase_file)
 
+    out = b"\nRunning Distributed Tests...\n"
+
+    # check mongo is running
+    # try:
+    #     MongoConnection()
+    # except DBConnectionException as e:
+    #     error("MongoDB is not running", True)
+
     distributed_tests = DistributedTests(
         docker_command,
         host_ip,
+        temp_fixed_dir,
         temp_dir,
         testcase_file
     )
-
-    out = b"\nRunning Distributed Tests...\n"
 
     with open(testcase_file, "r") as f:
         lines = f.readlines()
@@ -107,8 +123,34 @@ def run_distributed_tests(docker_command, host_ip, temp_dir, testcase_file):
         except TimeoutError:
             passed = False
             resultlog = bytes(
-                "Test timed out after %d seconds" % distributed_tests.timeout, "utf-8")
+                "Test timed out after %d seconds" % distributed_tests.timeout,
+                "utf-8"
+            )
         out += resultlog
+        # if passed:
+        #     assignment_id = distributed_tests_data['assignment_id']
+        #     student_id = distributed_tests_data['student_id']
+        #     student_name = distributed_tests_data['student_name']
+        #     submitted_at = distributed_tests_data['submitted_at']
+        #     attachments = distributed_tests_data['attachments']
+        #     try:
+        #         with timeout(distributed_tests.timeout):
+        #             passed, resultlog = run_heterogenous_tests(
+        #                 distributed_tests=distributed_tests,
+        #                 assignment_id=assignment_id,
+        #                 student_id=student_id,
+        #                 student_name=student_name,
+        #                 submitted_at=submitted_at,
+        #                 attachments=attachments
+        #             )
+        #     except TimeoutError:
+        #         passed = False
+        #         resultlog = bytes(
+        #             "Test timed out after %d seconds" %
+        #             distributed_tests.timeout,
+        #             "utf-8"
+        #         )
+        # out += resultlog
     except EnvironmentError as e:
         out += bytes(str(e) + "\n", "utf-8")
     return out

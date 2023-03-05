@@ -1,16 +1,14 @@
 from canvasapi import Canvas
 from configparser import ConfigParser
-from distutils.dir_util import copy_tree
 import click
 import datetime
 import os, shutil, sys
-import requests
-import zipfile
 import subprocess
 import tempfile
 import traceback
 from commons import *
 from distributed import run_distributed_tests
+from utils import copy_files_to_submission_dir, download_attachment, set_acls, unzip
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
@@ -93,25 +91,6 @@ class CanvasHandler:
             else:
                 debug(f'skipping {assignment.name} (no {assignment.name}{CODEVAL_SUFFIX} file)')
 
-
-    def download_attachment(self, directory, a):
-        curPath = os.getcwd()
-        os.chdir(os.path.join(curPath, directory))
-
-        fname = a['display_name']
-        prefix = os.path.splitext(fname)[0]
-        suffix = os.path.splitext(fname)[1]
-        durl = a['url']
-        with requests.get(durl) as response:
-            if response.status_code != 200:
-                error(f'error {response.status_code} fetching {durl}')
-            with open(f"{prefix}{suffix}", "wb") as fd:
-                for chunk in response.iter_content():
-                    fd.write(chunk)
-
-        os.chdir(curPath)
-        return os.path.join(directory, fname)
-
     def get_valid_test_file(self, course_name, codeval_folder, assignment_name, dest_dir):
         '''download testcase file and extra files required for evaluate.sh to run'''
         debug(f'getting {assignment_name} from {course_name}')
@@ -188,22 +167,21 @@ class CanvasHandler:
                                 force or self.should_check_submission(submission)):
                             with tempfile.TemporaryDirectory(prefix="codeval", suffix="submission") as tmpdir:
                                 debug(f"tmpdir is {tmpdir}")
-                                if sys.platform == 'darwin':
-                                    subprocess.call(["chmod", "-R", "o+rwx", tmpdir])
-                                else:
-                                    subprocess.call(["setfacl", "-d", "-m", "o::rwx", tmpdir])
+                                set_acls(tmpdir)
                                 message = 'problem grading assignment'
                                 try:
                                     debug(f"checking submission by user {submission.user['name']}.")
                                     self.download_submission_attachments(submission, tmpdir)
-                                    copy_tree(temp_fixed, tmpdir)
-                                    shutil.copy("evaluate.sh", f"{tmpdir}/evaluate.sh")
-                                    shutil.copy("runvalgrind.sh", f"{tmpdir}/runvalgrind.sh")
-                                    shutil.copy("parsediff", f"{tmpdir}/parsediff")
-                                    shutil.copy("parsevalgrind", f"{tmpdir}/parsevalgrind")
-
-                                    output = self.evaluate(tmpdir)
-                                    message = output.decode();
+                                    copy_files_to_submission_dir(temp_fixed, tmpdir)
+                                    distributed_tests_data = {
+                                        'assignment_id': str(assignment.id),
+                                        'student_id': str(submission.user['id']),
+                                        'student_name': submission.user['name'],
+                                        'submitted_at': datetime.datetime.fromisoformat(submission.submitted_at),
+                                        'attachments': submission.attachments,
+                                    }
+                                    output = self.evaluate(temp_fixed, tmpdir, distributed_tests_data)
+                                    message = output.decode()
                                 except Exception as e:
                                     traceback.print_exc()
                                     message = str(e)
@@ -224,7 +202,7 @@ class CanvasHandler:
 
     def download_submission_attachments(self, submission, submission_dir):
         for attachment in submission.attachments:
-            attachment_path = self.download_attachment(submission_dir, attachment)
+            attachment_path = download_attachment(submission_dir, attachment)
             unzip(attachment_path, submission_dir, delete=True)
 
     def get_file(self, codeval_folder, file_name, outpath=""):
@@ -243,7 +221,7 @@ class CanvasHandler:
         debug(f"{file_name} downloaded at {filepath}.")
         return filepath
 
-    def evaluate(self, tmpdir):
+    def evaluate(self, temp_fixed, tmpdir, distributed_tests_data):
         ''' run commands specified in codeval.ini'''
         command = self.parser["RUN"]["command"]
         if not command:
@@ -277,36 +255,25 @@ class CanvasHandler:
             out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
             return out
         if has_distributed_tests:
-            out += self.evaluate_distributed_tests(tmpdir)
+            out += self.evaluate_distributed_tests(
+                temp_fixed, tmpdir, distributed_tests_data
+            )
         return out
 
-    def evaluate_distributed_tests(self, tmpdir):
+    def evaluate_distributed_tests(
+            self, temp_fixed, tmpdir, distributed_tests_data
+    ):
         '''evaluate distributed tests'''
         command = self.parser["RUN"]["dist_command"]
         host_ip = self.parser["RUN"]["host_ip"]
-        return run_distributed_tests(command, host_ip, tmpdir, f"{tmpdir}/testcases.txt")
-
-
-
-
-
-
-def unzip(filepath, dir, delete=False):
-    with zipfile.ZipFile(filepath) as file:
-        for zi in file.infolist():
-            file.extract(zi.filename, path=dir)
-            debug(f"extracting {zi.filename}")
-            fname = os.path.join(dir, zi.filename)
-            s = os.stat(fname)
-            # the user executable bit is set
-            perms = (s.st_mode | (zi.external_attr >> 16)) & 0o777
-            os.chmod(fname, perms)
-
-        debug(f"{filepath} extracted to {dir}.")
-    if delete:
-        os.remove(filepath)
-        debug(f"{filepath} deleted.")
-
+        return run_distributed_tests(
+            command,
+            host_ip,
+            temp_fixed,
+            tmpdir,
+            f"{tmpdir}/testcases.txt",
+            distributed_tests_data
+        )
 
 @click.command("codeval")
 @click.argument("course_name")

@@ -132,6 +132,7 @@ if [ "$line" = "C" ]
    $args &> compilelog
    if [ $? -ne 0 ]
    then
+       echo -n "Compilation failed\n"
        head -10 compilelog
    exit 1
    fi
