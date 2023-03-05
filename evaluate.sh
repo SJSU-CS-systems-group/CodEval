@@ -134,6 +134,8 @@ if [ "$line" = "C" ]
    then
        echo "Compilation failed"
        head -10 compilelog
+       echo "..."
+       tail -10 compilelog
    exit 1
    fi
 elif [ "$line" = "T" ] || [ "$line" = "HT" ]

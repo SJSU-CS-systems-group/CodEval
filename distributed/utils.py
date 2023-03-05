@@ -122,7 +122,7 @@ def _run_command_in_container(
         command
     ))
 
-    command = "docker exec %s %s" % (container_data.id, command)
+    command = "docker exec %s bash -c '%s'" % (container_data.id, command)
     result = _run_command(command, is_sync)
     if not is_sync:
         return True, out
@@ -133,11 +133,17 @@ def _run_command_in_container(
                 command,
                 result.stdout.decode("utf-8")
             ), raise_exception=False)
+            stdout_split = result.stdout.decode("utf-8").split("\n")
             out += bytes(
                 "Docker command failed for container %s: %s\n%s" % (
                     container_name,
                     command,
-                    "\n".join(result.stdout.decode("utf-8").split("\n")[-5:])
+                    "\n".join(
+                        stdout_split[:5] +
+                        ["..."] +
+                        stdout_split[-5:]
+                            if len(stdout_split) > 10 else stdout_split
+                    )
                 ), "utf-8"
             )
         else:
@@ -180,10 +186,16 @@ def run_external_command(
                 bash_command,
                 result.stdout.decode("utf-8")
             ), raise_exception=False)
+            stdout_split = result.stdout.decode("utf-8").split("\n")
             out += bytes(
                 "Command failed: %s\n%s" % (
                     bash_command,
-                    "\n".join(result.stdout.decode("utf-8").split("\n")[-5:])
+                    "\n".join(
+                        stdout_split[:5] +
+                        ["..."] +
+                        stdout_split[-5:]
+                            if len(stdout_split) > 10 else stdout_split
+                    )
                 ), "utf-8"
             )
         else:
@@ -222,8 +234,17 @@ def run_test_command(
             out += bytes("Hint: " + hint + "\n", "utf-8")
         else:
             out += bytes("Command ran: " + command + "\n", "utf-8")
-            out += bytes("\n".join(result.stdout.decode("utf-8")
-                                   .split("\n")[-10:]) + "\n", "utf-8")
+            stdout_split = result.stdout.decode("utf-8").split("\n")
+            out += bytes(
+                (
+                    "\n".join(
+                        stdout_split[:5] +
+                        ["..."] +
+                        stdout_split[-5:]
+                            if len(stdout_split) > 10 else stdout_split
+                    ) + "\n"
+                ), "utf-8"
+            )
     else:
         message = "Distributed Test %s of %s: PASSED" % (
             str(test_number), str(testcases_count))
