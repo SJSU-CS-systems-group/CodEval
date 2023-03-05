@@ -90,7 +90,7 @@ def run_command_in_containers(
             container_name, replica_command, is_sync, fail_on_error
         )
         out += logs
-        if not is_sync:
+        if not is_sync and not fail_on_error:
             continue
         if not success and fail_on_error:
             return False, out
@@ -122,10 +122,25 @@ def _run_command_in_container(
         command
     ))
 
-    command = "docker exec %s bash -c '%s'" % (container_data.id, command)
-    result = _run_command(command, is_sync)
+    docker_command = command
+
+    if not is_sync and fail_on_error:
+        docker_command = docker_command + \
+            ' 2> outlog || echo $? > failed_status'
+
+    docker_command = "docker exec %s bash -c '%s'" % \
+        (container_data.id, docker_command)
+    result = _run_command(docker_command, is_sync)
     if not is_sync:
-        return True, out
+        if not fail_on_error:
+            return True, out
+        else:
+            result = _run_command(
+                "sleep 3 && docker exec %s bash -c '( ! test -f failed_status ) || ( cat outlog && false )'" % (
+                    container_data.id
+                ),
+                True
+            )
     if result.returncode != 0:
         if fail_on_error:
             error("Docker command failed for container %s: %s\n%s" % (
