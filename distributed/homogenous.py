@@ -52,6 +52,7 @@ def run_homogenous_tests(
             if not has_homogenous_tests:
                 has_homogenous_tests = True
                 out += b"Tests with your own submission:\n"
+            current_group_testcase_number = 0
 
             for i in range(test_group.total_machines):
                 kill_stale_and_run_docker_container(
@@ -94,11 +95,12 @@ def run_homogenous_tests(
                         break
                 elif label == "TESTCMD":
                     current_testcase_number += 1
+                    current_group_testcase_number += 1
                     command = rest
                     command = command.replace("HOST_IP", distributed_tests.host_ip)
                     passed, resultlog = run_test_command(
                         command=command,
-                        hint=test_group.test_hints[current_testcase_number-1],
+                        hint=test_group.test_hints[current_group_testcase_number-1],
                         placeholder_replacements=placeholder_replacements,
                         test_number=current_testcase_number,
                         testcases_count=distributed_tests.testcases_count,

@@ -134,6 +134,7 @@ def run_heterogenous_tests(
         for test_group in distributed_tests.test_groups:
             if not test_group.heterogenous:
                 continue
+            current_group_testcase_number = 0
 
             # restarting user's own submission for each combination
             kill_stale_and_run_docker_container(
@@ -187,12 +188,13 @@ def run_heterogenous_tests(
                         break
                 elif label == "TESTCMD":
                     current_testcase_number += 1
+                    current_group_testcase_number += 1
                     command = rest
                     command = command.replace(
                         "HOST_IP", distributed_tests.host_ip)
                     passed, resultlog = run_test_command(
                         command=command,
-                        hint=test_group.test_hints[current_testcase_number-1],
+                        hint=test_group.test_hints[current_group_testcase_number-1],
                         placeholder_replacements=placeholder_replacements,
                         test_number=current_testcase_number,
                         testcases_count=distributed_tests.testcases_count,
