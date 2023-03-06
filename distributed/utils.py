@@ -156,7 +156,7 @@ def _run_command_in_container(
                     "\n".join(
                         stdout_split[:5] +
                         ["..."] +
-                        stdout_split[-5:]
+                        stdout_split[-6:]
                             if len(stdout_split) > 10 else stdout_split
                     )
                 ), "utf-8"
@@ -208,7 +208,7 @@ def run_external_command(
                     "\n".join(
                         stdout_split[:5] +
                         ["..."] +
-                        stdout_split[-5:]
+                        stdout_split[-6:]
                             if len(stdout_split) > 10 else stdout_split
                     )
                 ), "utf-8"
@@ -255,7 +255,7 @@ def run_test_command(
                     "\n".join(
                         stdout_split[:5] +
                         ["..."] +
-                        stdout_split[-5:]
+                        stdout_split[-6:]
                             if len(stdout_split) > 10 else stdout_split
                     ) + "\n"
                 ), "utf-8"
