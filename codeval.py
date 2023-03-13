@@ -15,10 +15,9 @@ from distributed import run_distributed_tests
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
 
-compile_timeout = 20
-has_distributed_tests = False
 copy_tmpdir = False
 compile_timeout = 20
+has_distributed_tests = False
 
 class CanvasHandler:
     def __init__(self):
@@ -286,7 +285,6 @@ class CanvasHandler:
         command = self.parser["RUN"]["dist_command"]
         host_ip = self.parser["RUN"]["host_ip"]
         return run_distributed_tests(command, host_ip, tmpdir, f"{tmpdir}/testcases.txt")
-
 
 def unzip(filepath, dir, delete=False):
     with zipfile.ZipFile(filepath) as file:

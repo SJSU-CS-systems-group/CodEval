@@ -20,7 +20,6 @@ def error(message, raise_exception=True):
     if raise_exception:
         raise EnvironmentError(message)
 
-
 def info(message):
     click.echo(click.style(f"{_now()} I {message}", fg='blue'))
 
