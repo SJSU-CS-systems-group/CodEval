@@ -1,11 +1,13 @@
+from canvasapi.assignment import Assignment
 from typing import Tuple, List
 import itertools
 import tempfile
+from multiprocessing import Process
 from datetime import datetime
 from commons import *
 from utils import *
 from .classes import DistributedTests
-from .utils import *
+from .dist_utils import *
 from .db import *
 
 
@@ -16,6 +18,7 @@ def run_heterogenous_tests(
         student_name: str,
         submitted_at: datetime,
         attachments: List[dict],
+        canvas_assignment: Assignment
 ) -> Tuple[bool, str]:
     """Runs heterogenous tests"""
     passed = True
@@ -40,6 +43,8 @@ def run_heterogenous_tests(
 
     placeholder_replacements = {
         'host_ip': distributed_tests.host_ip,
+        'temp_dir': distributed_tests.temp_dir,
+        'username': student_name.replace(" ", "_").lower()[:10]
     }
 
     # Run commands to setup tests
@@ -64,7 +69,10 @@ def run_heterogenous_tests(
         student_id=student_id,
         student_name=student_name,
         submitted_at=submitted_at,
-        attachments=attachments,
+        attachments=[{
+            'display_name': a['display_name'],
+            'url': a['url']
+        } for a in attachments],
     )
 
     other_submissions = get_other_user_submissions(
@@ -96,16 +104,22 @@ def run_heterogenous_tests(
 
     student_id_to_temp_dir = {}
 
+    combination_outputs = []
+
     for current_combination in combinations:
+        current_combination_output = bytes("Test with submissions by: %s\n" % (
+            ', '.join([student_name] +
+                      list(x['student_name'] for x in current_combination))
+        ), 'utf-8')
         debug("Running tests with submissions of users: %s" % (
             ', '.join(x['student_name'] for x in current_combination)
         ))
         for submission in current_combination:
-            student_id = submission['student_id']
-            if student_id not in student_id_to_temp_dir:
+            other_student_id = submission['student_id']
+            if other_student_id not in student_id_to_temp_dir:
                 temp_dir = tempfile.TemporaryDirectory(
                     prefix="codeval",
-                    suffix="%s_submission" % student_id
+                    suffix="%s_submission" % other_student_id
                 )
                 temp_dir_name = temp_dir.name
                 debug("Created temp dir for %s: %s" % (
@@ -114,18 +128,13 @@ def run_heterogenous_tests(
                 ))
                 debug("Setting ACLs for %s" % temp_dir_name)
                 set_acls(temp_dir_name)
-                download_attachments(submission['attachments'], temp_dir_name)
+                _download_attachments(submission['attachments'], temp_dir_name)
                 debug("Downloaded %s attachment(s) for %s" % (
-                    str(len(submission['attachments'])), student_id
+                    str(len(submission['attachments'])), other_student_id
                 ))
                 copy_files_to_submission_dir(
                     distributed_tests.temp_fixed_dir, temp_dir_name)
-                student_id_to_temp_dir[student_id] = temp_dir
-
-        placeholder_replacements = {
-            'host_ip': distributed_tests.host_ip,
-            'temp_dir': distributed_tests.temp_dir
-        }
+                student_id_to_temp_dir[other_student_id] = temp_dir
 
         current_testcase_number = 0
 
@@ -151,7 +160,7 @@ def run_heterogenous_tests(
                 kill_stale_and_run_docker_container(
                     container_name="replica%d" % (submission_idx + 1),
                     docker_command=distributed_tests.docker_command,
-                    temp_dir=student_id_to_temp_dir[student_id].name,
+                    temp_dir=student_id_to_temp_dir[submission['student_id']].name,
                     ports_count=distributed_tests.ports_count_to_expose
                 )
 
@@ -165,7 +174,7 @@ def run_heterogenous_tests(
                         fail_on_error=label == "ECMDT",
                         placeholder_replacements=placeholder_replacements,
                     )
-                    out += resultlog
+                    current_combination_output += resultlog
                     if not success and label == "ECMDT":
                         passed = False
                         break
@@ -173,16 +182,25 @@ def run_heterogenous_tests(
                     execution_style, bash_command = rest.split(" ", 1)
 
                     container_names = []
+                    containers_pr = {
+                        **placeholder_replacements,
+                        'username': [placeholder_replacements['username']]
+                    }
                     for i in range(test_group.total_machines):
                         container_names.append("replica%d" % i)
+                        if i > 0:
+                            containers_pr['username'].append(
+                                current_combination[i-1]['student_name']
+                                .replace(" ", "_").lower()[:10]
+                            )
                     success, resultlog = run_command_in_containers(
                         container_names=container_names,
                         command=bash_command,
                         is_sync=execution_style == "SYNC",
                         fail_on_error=label == "ICMDT",
-                        placeholder_replacements=placeholder_replacements,
+                        placeholder_replacements=containers_pr,
                     )
-                    out += resultlog
+                    current_combination_output += resultlog
                     if not success and label == "ICMDT":
                         passed = False
                         break
@@ -199,7 +217,7 @@ def run_heterogenous_tests(
                         test_number=current_testcase_number,
                         testcases_count=distributed_tests.testcases_count,
                     )
-                    out += resultlog
+                    current_combination_output += resultlog
                     if not passed:
                         break
             # Cleanup before next test group
@@ -211,17 +229,30 @@ def run_heterogenous_tests(
             # No need to go to next test group if current failed
             if not passed:
                 break
+        _add_comment_to_user_submissions_in_parallel(
+            student_ids=[x['student_id'] for x in current_combination],
+            student_names=[x['student_name'] for x in current_combination],
+            comment=current_combination_output.decode(),
+            canvas_assignment=canvas_assignment
+        )
+        combination_outputs.append(current_combination_output)
         if passed:
-            out += bytes("Tests passed with submissions by users: %s" % (
-                ', '.join(x['student_name'] for x in current_combination)
-            ), 'utf-8')
-            add_score_to_submissions(
-                assignment_id=test_group.assignment_id,
-                student_ids=[s['student_id'] for s in current_combination]
-            )
+            student_ids_passed = [student_id] + \
+                [s['student_id'] for s in current_combination]
+            if not get_config().dry_run:
+                debug("Adding score to submissions in parallel: %s" %
+                      str(student_ids_passed))
+                Process(
+                    target=add_score_to_submissions,
+                    args=(assignment_id, student_ids_passed)
+                ).start()
+            else:
+                debug("Would have incremented score to submissions in parallel: %s" %
+                      str(student_ids_passed))
             # No need to go to next combination if current passed
             break
 
+    out += b'\n'.join(combination_outputs)
     # Cleanup after all tests
     for command in distributed_tests.cleanup_commands:
         label, execution_style, bash_command = command.split(" ", 2)
@@ -237,18 +268,61 @@ def run_heterogenous_tests(
         if not success and label == "ECMDT":
             passed = False
             break
-
     debug("Finished tests with other submissions. Passed: %s" % passed)
     return passed, out
 
 
-# def create_temp_dir_for_student_id(student_id: str) -> str:
-#     """Creates a temporary directory for a user"""
-#     return
+def mark_user_submission_as_not_active_if_present_in_parallel(
+    assignment_id: int,
+    student_id: str,
+) -> None:
+    """Marks user's submission as not active"""
+    if get_config().dry_run:
+        debug("would have marked submission by %s as not active if present" % student_id)
+        return
+    Process(
+        target=deactivate_user_submission,
+        args=(assignment_id, student_id)
+    ).start()
 
 
-def download_attachments(attachments: List[dict], temp_dir: str) -> None:
+def _download_attachments(attachments: List[dict], temp_dir: str) -> None:
     """Downloads attachments"""
     for attachment in attachments:
         attachment_path = download_attachment(temp_dir, attachment)
         unzip(attachment_path, temp_dir, delete=True)
+
+
+def _add_comment_to_user_submissions_in_parallel(
+    student_ids: List[str],
+    student_names: List[str],
+    comment: str,
+    canvas_assignment: Assignment
+) -> None:
+    """Adds comments to users' submissions in a parallel process"""
+    if get_config().dry_run:
+        info("would have added comment to submissions by %s:\n%s" % (
+            ', '.join(student_names), comment))
+        return
+    debug("Adding comment to submissions by %s:\n%s" % (
+        ', '.join(student_names), comment))
+    Process(
+        target=_add_comment_to_user_submissions,
+        args=(
+            student_ids,
+            comment,
+            canvas_assignment
+        )
+    ).start()
+
+
+def _add_comment_to_user_submissions(
+    student_ids: List[str],
+    comment: str,
+    canvas_assignment: Assignment
+) -> None:
+    """Adds a comment to users' submissions"""
+    for student_id in student_ids:
+        canvas_assignment.get_submission(student_id).edit(comment={
+            'text_comment': '[AG]\n\n' + comment
+        })

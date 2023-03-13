@@ -1,9 +1,10 @@
 from commons import *
 from timeout import timeout
+from multiprocessing import Process
 from .classes import DistributedTests
 from .homogenous import run_homogenous_tests
-# from .heterogenous import run_heterogenous_tests
-# from .db import MongoConnection, DBConnectionException
+from .heterogenous import run_heterogenous_tests, mark_user_submission_as_not_active_if_present_in_parallel
+from .db import MongoConnection, DBConnectionException
 
 
 def run_distributed_tests(
@@ -22,10 +23,10 @@ def run_distributed_tests(
     out = b"\nRunning Distributed Tests...\n"
 
     # check mongo is running
-    # try:
-    #     MongoConnection()
-    # except DBConnectionException as e:
-    #     error("MongoDB is not running", True)
+    try:
+        MongoConnection()
+    except DBConnectionException as e:
+        error("MongoDB is not running", True)
 
     distributed_tests = DistributedTests(
         docker_command,
@@ -132,29 +133,53 @@ def run_distributed_tests(
                 "utf-8"
             )
         out += resultlog
-        # if passed:
-        #     assignment_id = distributed_tests_data['assignment_id']
-        #     student_id = distributed_tests_data['student_id']
-        #     submitted_at = distributed_tests_data['submitted_at']
-        #     attachments = distributed_tests_data['attachments']
-        #     try:
-        #         with timeout(distributed_tests.timeout):
-        #             passed, resultlog = run_heterogenous_tests(
-        #                 distributed_tests=distributed_tests,
-        #                 assignment_id=assignment_id,
-        #                 student_id=student_id,
-        #                 student_name=student_name,
-        #                 submitted_at=submitted_at,
-        #                 attachments=attachments
-        #             )
-        #     except TimeoutError:
-        #         passed = False
-        #         resultlog = bytes(
-        #             "Test timed out after %d seconds" %
-        #             distributed_tests.timeout,
-        #             "utf-8"
-        #         )
-        # out += resultlog
+        if passed:
+            assignment_id = distributed_tests_data['assignment_id']
+            student_id = distributed_tests_data['student_id']
+            submitted_at = distributed_tests_data['submitted_at']
+            attachments = distributed_tests_data['attachments']
+            canvas_assignment = distributed_tests_data['canvas_assignment']
+            try:
+                with timeout(distributed_tests.timeout * 2):
+                    passed, resultlog = run_heterogenous_tests(
+                        distributed_tests=distributed_tests,
+                        assignment_id=assignment_id,
+                        student_id=student_id,
+                        student_name=student_name,
+                        submitted_at=submitted_at,
+                        attachments=attachments,
+                        canvas_assignment=canvas_assignment
+                    )
+            except TimeoutError:
+                passed = False
+                resultlog = bytes(
+                    "Test timed out after %d seconds" %
+                    distributed_tests.timeout,
+                    "utf-8"
+                )
+            out += resultlog
+        else:
+            mark_user_submission_as_not_active_if_present_in_parallel(
+                distributed_tests_data['student_id'],
+                distributed_tests_data['assignment_id']
+            )
+
     except EnvironmentError as e:
         out += bytes(str(e) + "\n", "utf-8")
     return out
+
+
+def mark_submission_as_inactive_if_present(
+    assignment_id: str,
+    student_id: str,
+) -> None:
+    # check mongo is running
+    try:
+        MongoConnection()
+    except DBConnectionException as e:
+        error("MongoDB is not running", False)
+        return
+    mark_user_submission_as_not_active_if_present_in_parallel(
+        student_id,
+        assignment_id
+    )

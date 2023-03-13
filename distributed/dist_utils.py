@@ -23,7 +23,6 @@ def kill_stale_and_run_docker_container(
     debug("Docker run command: %s" % docker_command)
     _kill_docker_container(container_name, True)
     result = _run_command(docker_command, True)
-    debug("Docker run result: %s" % result.stdout.decode("utf-8"))
     if result.returncode != 0:
         error("Docker run failed: %s" % result.stdout.decode("utf-8"), True)
     container.id = result.stdout.decode("utf-8").strip()
@@ -73,7 +72,7 @@ def run_command_in_containers(
         replica_command = command
         replica_command = replica_command.replace(
             "USERNAME",
-            placeholder_replacements['username'] + '_' + str(idx)
+            placeholder_replacements['username'][idx] + '_' + str(idx)
         )
         port_index = 0
         while "PORT_" in replica_command:

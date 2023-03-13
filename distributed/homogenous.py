@@ -1,7 +1,7 @@
 from typing import List, Tuple
 from commons import *
 from .classes import DistributedTests
-from .utils import *
+from .dist_utils import *
 
 
 def run_homogenous_tests(
@@ -82,12 +82,17 @@ def run_homogenous_tests(
                     container_names = []
                     for i in range(test_group.total_machines):
                         container_names.append("replica%d" % i)
+                    containers_pr = {
+                        **placeholder_replacements,
+                        'username': [placeholder_replacements['username']] * \
+                            test_group.total_machines
+                    }
                     success, resultlog = run_command_in_containers(
                         container_names=container_names,
                         command=bash_command,
                         is_sync=execution_style == "SYNC",
                         fail_on_error=label == "ICMDT",
-                        placeholder_replacements=placeholder_replacements,
+                        placeholder_replacements=containers_pr,
                     )
                     out += resultlog
                     if not success and label == "ICMDT":

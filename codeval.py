@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import traceback
 from commons import *
-from distributed import run_distributed_tests
+from distributed import run_distributed_tests, mark_submission_as_inactive_if_present
 from utils import copy_files_to_submission_dir, download_attachment, set_acls, unzip
 
 CODEVAL_FOLDER = "course files/CodEval"
@@ -152,7 +152,7 @@ class CanvasHandler:
             return folder, specs
         return None, None
 
-    def grade_submissions(self, course_name, dry_run, force):
+    def grade_submissions(self, course_name):
         course = self.get_course(course_name)
         codeval_folder, codeval_specs = self.get_assignment_specs(course)
         if not codeval_specs:
@@ -164,7 +164,7 @@ class CanvasHandler:
                     self.get_valid_test_file(course_name, codeval_folder, assignment.name, temp_fixed)
                     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
                         if hasattr(submission, 'attachments') and (
-                                force or self.should_check_submission(submission)):
+                                get_config().force or self.should_check_submission(submission)):
                             with tempfile.TemporaryDirectory(prefix="codeval", suffix="submission") as tmpdir:
                                 debug(f"tmpdir is {tmpdir}")
                                 set_acls(tmpdir)
@@ -179,6 +179,7 @@ class CanvasHandler:
                                         'student_name': submission.user['name'],
                                         'submitted_at': datetime.datetime.strptime(submission.submitted_at, "%Y-%m-%dT%H:%M:%S%z"),
                                         'attachments': submission.attachments,
+                                        'canvas_assignment': assignment,
                                     }
                                     output = self.evaluate(temp_fixed, tmpdir, distributed_tests_data)
                                     message = output.decode()
@@ -187,10 +188,10 @@ class CanvasHandler:
                                     message = str(e)
                                     info(f"Could not evaluate submission {submission.id} due to error: {e}")
 
-                                if copy_tmpdir:
+                                if get_config().copy_tmpdir:
                                     info(f"copying {tmpdir} {os.path.basename(tmpdir)}")
                                     shutil.copytree(tmpdir, os.path.basename(tmpdir))
-                                if dry_run:
+                                if get_config().dry_run:
                                     info(f"would have said {message} to {submission.user['name']}")
                                 else:
                                     debug(f"said {message} to {submission.user['name']}")
@@ -248,11 +249,19 @@ class CanvasHandler:
         try:
             out, err = p.communicate(timeout=compile_timeout)
             if p.returncode != 0:
+                mark_submission_as_inactive_if_present(
+                    distributed_tests_data['assignment_id'],
+                    distributed_tests_data['student_id'],
+                )
                 return out
         except subprocess.TimeoutExpired:
             p.kill()
             out, err = p.communicate()
             out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+            mark_submission_as_inactive_if_present(
+                distributed_tests_data['assignment_id'],
+                distributed_tests_data['student_id'],
+            )
             return out
         if has_distributed_tests:
             out += self.evaluate_distributed_tests(
@@ -291,10 +300,8 @@ def grade_course_submissions(course_name, dry_run, verbose, force, copytmpdir):
     if dry_run:
         warn("This is a dry run. No updates to canvas will be made.")
     canvasHandler = CanvasHandler()
-    set_debug(verbose)
-    canvasHandler.grade_submissions(course_name, dry_run, force)
-    global copy_tmpdir
-    copy_tmpdir = copytmpdir
+    set_config(verbose, dry_run, force, copytmpdir)
+    canvasHandler.grade_submissions(course_name)
 
 
 if __name__ == "__main__":
