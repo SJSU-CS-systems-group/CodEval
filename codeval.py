@@ -18,6 +18,7 @@ CODEVAL_SUFFIX = ".codeval"
 compile_timeout = 20
 has_distributed_tests = False
 copy_tmpdir = False
+compile_timeout = 20
 
 class CanvasHandler:
     def __init__(self):
