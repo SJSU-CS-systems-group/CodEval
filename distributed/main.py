@@ -72,7 +72,7 @@ def run_distributed_tests(
                     continue
 
                 if in_cleanup and line_args[0] not in ["ECMD", "ECMDT"]:
-                    error("Cleanup commands must be at the end of spec file")
+                    error("Cleanup commands must be at the end of spec file", True)
 
                 if line_args[0] == "PORTS":
                     distributed_tests.ports_count_to_expose = int(line_args[1])
@@ -95,7 +95,7 @@ def run_distributed_tests(
                         total_machines, homogenous, heterogenous)
                 elif current_test_group is None:
                     error("Unexpected %s before DTC in test spec file" %
-                          line_args[0])
+                          line_args[0], True)
 
                 if line_args[0] in ["ICMD", "ICMDT"]:
                     current_test_group.commands.append(line)

@@ -8,7 +8,7 @@ import tempfile
 import traceback
 from commons import *
 from distributed import run_distributed_tests, mark_submission_as_inactive_if_present
-from utils import copy_files_to_submission_dir, download_attachment, set_acls, unzip
+from file_utils import copy_files_to_submission_dir, download_attachment, set_acls, unzip
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
@@ -33,7 +33,7 @@ class CanvasHandler:
             user = self.canvas.get_current_user()
             info(f"connected to canvas as {user.name} ({user.id})")
         except:
-            error(f"there was a problem accessing canvas.")
+            error(f"there was a problem accessing canvas.", True)
         self.executable = None
 
     def _check_config(self, section, key):
@@ -120,7 +120,7 @@ class CanvasHandler:
                 elif line_args[0] == "USING":
                     file_name = line_args[1]
                     if file_name not in os.listdir(dest_dir):
-                        error(f"{file_name} not found in the {dest_dir} directory")
+                        error(f"{file_name} not found in the {dest_dir} directory", True)
                     else:
                         self.executable = file_name
                         debug(f"main executable set to {file_name}. this will replace execute.sh in the config command.")
@@ -149,14 +149,14 @@ class CanvasHandler:
                     if spec.display_name.endswith(CODEVAL_SUFFIX):
                         name = spec.display_name[:-len(CODEVAL_SUFFIX)]
                         specs[name] = spec
-            return folder, specs
+                return folder, specs
         return None, None
 
     def grade_submissions(self, course_name):
         course = self.get_course(course_name)
         codeval_folder, codeval_specs = self.get_assignment_specs(course)
         if not codeval_specs:
-            error(f"no *{CODEVAL_SUFFIX} files found in {CODEVAL_FOLDER}")
+            error(f"no *{CODEVAL_SUFFIX} files found in {CODEVAL_FOLDER}", False)
             return
         for assignment in self.get_assignments(course, codeval_specs):
             with tempfile.TemporaryDirectory(prefix="codeval", suffix="fixed") as temp_fixed:
@@ -211,11 +211,11 @@ class CanvasHandler:
         files = codeval_folder.get_files()
         filtered_files = [file for file in files if file.display_name == file_name]
         if not file_name:
-            error("No file name was given.")
+            error("No file name was given.", True)
         if len(filtered_files) == 0:
-            error(f"{file_name} file not found in {CODEVAL_FOLDER}.")
+            error(f"{file_name} file not found in {CODEVAL_FOLDER}.", True)
         if len(filtered_files) > 1:
-            error(f"Multiple files found matching {file_name}: {[f.display_name for f in filtered_files]}.")
+            error(f"Multiple files found matching {file_name}: {[f.display_name for f in filtered_files]}.", True)
         file = filtered_files[0]
         filepath = outpath if outpath else file.display_name
         file.download(filepath)
@@ -226,7 +226,7 @@ class CanvasHandler:
         ''' run commands specified in codeval.ini'''
         command = self.parser["RUN"]["command"]
         if not command:
-            error(f"commands section under [RUN] in {self.parser.config_file} is empty")
+            error(f"commands section under [RUN] in {self.parser.config_file} is empty", True)
 
         if "precommand" in self.parser['RUN']:
             precommand = self.parser["RUN"]["precommand"]
@@ -235,7 +235,7 @@ class CanvasHandler:
             out, err = p.communicate(timeout=compile_timeout)
             debug(f"precommand result - {out}")
             if err:
-                error(err)
+                error(err, True)
 
         debug(f"command before {command}")
         if self.executable:

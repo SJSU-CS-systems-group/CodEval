@@ -31,7 +31,7 @@ def run_homogenous_tests(
     for command in distributed_tests.tests_setup_commands:
         label, execution_style, bash_command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
-            error("Invalid command: %s" % command)
+            error("Invalid command: %s" % command, True)
         success, resultlog = run_external_command(
             bash_command=bash_command,
             is_sync=execution_style == "SYNC",

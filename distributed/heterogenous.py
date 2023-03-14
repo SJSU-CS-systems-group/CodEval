@@ -5,7 +5,7 @@ import tempfile
 from multiprocessing import Process
 from datetime import datetime
 from commons import *
-from utils import *
+from file_utils import *
 from .classes import DistributedTests
 from .dist_utils import *
 from .db import *
