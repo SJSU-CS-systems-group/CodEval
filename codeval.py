@@ -335,8 +335,8 @@ def cmdargs():
 @click.argument("specname")
 @click.option("--dry-run/--no-dry-run", default=True, show_default=True,help="Check with Professor")
 @click.option("--verbose/--no-verbose", default=False, show_default=True,help="Verbose actions")
-@click.option("--groupid", default=0, show_default=True,help="Group name in which assignments needs to be created.")
-def create_assignment(dry_run,verbose,course_name,groupid,specname):
+@click.option("--group_name", default="Assignments", show_default=True,help="Group name in which assignments needs to be created.")
+def create_assignment(dry_run,verbose,course_name,group_name,specname):
     """
         Create the assignment in the given course.
     """
@@ -367,6 +367,14 @@ def create_assignment(dry_run,verbose,course_name,groupid,specname):
         debug(f'Successfully converted the assignment description to HTML')
     assign_name = convertMD2Html.assignment_name
     
+    grp_name = None
+    for assign_group in course.get_assignment_groups():
+        if assign_group.name == group_name:
+            grp_name = assign_group
+            debug(f'The group id is: {grp_name.id}')
+    if grp_name == None:
+        error(f'The group name : {group_name} does not exist. Exiting!')
+
     canvas_assignments = course.get_assignments()
     debug(f'Successfully got all the assignments from the desired course')
     canvas_assign_names = [assign.name for assign in canvas_assignments]
@@ -378,6 +386,7 @@ def create_assignment(dry_run,verbose,course_name,groupid,specname):
                 else:
                     try:
                         assignment.edit(assignment={'name': assign_name,
+                                                'assignment_group_id': grp_name.id,
                                                 'description': html,
                                                 'points_possible': 100,
                                                 'published': False,                                                                                                     'submission_types':["online_upload"],
@@ -402,6 +411,7 @@ def create_assignment(dry_run,verbose,course_name,groupid,specname):
                 disUrlHtml = f'<a href={dis_topic.html_url}>{dis_topic.title}</a>'
                 # Create the assignment with the assign_name
                 created_assignment=course.create_assignment({'name': assign_name,
+                                      'assignment_group_id': grp_name.id,
                                       'description':html.replace("HW_URL",disUrlHtml),
                                       'points_possible':100,
                                       'published':False,
@@ -427,7 +437,7 @@ def create_assignment(dry_run,verbose,course_name,groupid,specname):
 @click.option("--force/--no-force", default=False, show_default=True,
               help="Grade submissions even if already graded")
 @click.option("--copytmpdir/--no-copytmpdir", default=False, show_default=True, help="copy tmpdirs to current directory")
-def grade_course_submissions(dry_run,verbose,course_name,force, copytmpdir):
+def grade_submissions(dry_run,verbose,course_name,force, copytmpdir):
     """
     Grade unsubmitted graded submission in the given course.
     """
