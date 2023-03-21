@@ -5,9 +5,7 @@ import subprocess
 import requests
 from distutils.dir_util import copy_tree
 import zipfile
-from commons import *
-
-# TODO: rename this file to file_utils.py
+from commons import debug, error
 
 
 def download_attachment(directory, attachment):

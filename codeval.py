@@ -6,9 +6,11 @@ import os, shutil, sys
 import subprocess
 import tempfile
 import traceback
-from commons import *
-from distributed import run_distributed_tests, mark_submission_as_inactive_if_present
-from file_utils import copy_files_to_submission_dir, download_attachment, set_acls, unzip
+from commons import debug, error, info, warn, get_config, set_config
+from distributed import run_distributed_tests, \
+    mark_submission_as_inactive_if_present
+from file_utils import copy_files_to_submission_dir, \
+    download_attachment, set_acls, unzip
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"

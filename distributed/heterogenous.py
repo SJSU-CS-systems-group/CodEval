@@ -4,11 +4,17 @@ import itertools
 import tempfile
 from multiprocessing import Process
 from datetime import datetime
-from commons import *
-from file_utils import *
+from commons import debug, error, info, get_config
+from file_utils import download_attachment, unzip, set_acls, \
+    copy_files_to_submission_dir
 from .classes import DistributedTests
-from .dist_utils import *
-from .db import *
+from .dist_utils import kill_stale_and_run_docker_container, \
+    run_external_command, run_command_in_containers, run_test_command, \
+    kill_running_docker_container
+from .db import add_user_submission_if_not_present, \
+    get_other_user_submissions, add_score_to_submissions, \
+    deactivate_user_submission
+from .containers import clear_running_containers
 
 
 def run_heterogenous_tests(
@@ -51,7 +57,7 @@ def run_heterogenous_tests(
     for command in distributed_tests.tests_setup_commands:
         label, execution_style, bash_command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
-            error("Invalid command: %s" % command)
+            error("Invalid command: %s" % command, True)
         success, resultlog = run_external_command(
             bash_command=bash_command,
             is_sync=execution_style == "SYNC",

@@ -1,4 +1,4 @@
-from commons import *
+from commons import debug, error
 from timeout import timeout
 from multiprocessing import Process
 from .classes import DistributedTests

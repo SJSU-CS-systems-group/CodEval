@@ -1,7 +1,7 @@
 from typing import List
 from .mongo import MongoConnection
 from datetime import datetime
-from commons import *
+from commons import debug
 
 
 """

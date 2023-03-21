@@ -1,7 +1,10 @@
 from typing import List, Tuple
-from commons import *
+from commons import debug, error
 from .classes import DistributedTests
-from .dist_utils import *
+from .dist_utils import run_external_command, \
+    kill_stale_and_run_docker_container, run_command_in_containers, \
+    run_test_command, kill_running_docker_container
+from .containers import clear_running_containers
 
 
 def run_homogenous_tests(
