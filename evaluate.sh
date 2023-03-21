@@ -109,8 +109,22 @@ touch fileinput expectedoutput expectederror
 while read -r fullline; do
 line="${fullline%% *}"
 args="${fullline#* }"
+if [ "$line" = "SS" ]
+   then
+   argsarray=($args)
+   timeout_sec="${argsarray[0]}"
+   kill_timeout_sec="${argsarray[1]}"
+   server_cmd="${argsarray[@]:2}"
+   echo "Starting server with command: $server_cmd and sleeping for: $timeout_sec. Will kill server after $kill_timeout_sec seconds."
+   eval "$server_cmd &> compilelog &"
+   server_pid=$!
+   echo "Server pid: $server_pid. Sleeping for $timeout_sec seconds."
+   eval sleep "$timeout_sec"
+   eval "( sleep $kill_timeout_sec; echo Killing $server_pid; kill -9 $server_pid ) &"
+   fi
 if [ "$line" = "C" ]
    then
+
    if [ "$testcase_count" -ne 0 ]
    then
        check_test
@@ -118,8 +132,11 @@ if [ "$line" = "C" ]
    $args &> compilelog
    if [ $? -ne 0 ]
    then
+       echo "Compilation failed"
        head -10 compilelog
-   exit
+       echo "..."
+       tail -10 compilelog
+   exit 1
    fi
 elif [ "$line" = "T" ] || [ "$line" = "HT" ]
     then
@@ -159,7 +176,7 @@ elif [ "$line" = "TCMD" ]
         do
            cat $file
         done 
-        exit
+        exit 1
     else
         echo PASSED
     fi
@@ -189,6 +206,9 @@ elif [ "$line" = "HINT" ]
 elif [ "$line" = "TO" ]
     then
     timeout_val=$args
+elif [ "$line" = "--DT--" ]
+    then
+    break
 fi
 done < testcases.txt
 

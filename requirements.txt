@@ -7,3 +7,4 @@ idna==3.3
 pytz==2021.3
 requests==2.27.0
 urllib3==1.26.7
+pymongo==4.3.3
