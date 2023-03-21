@@ -1,9 +1,10 @@
-from commons import debug, error
+from commons import debug, error, errorWithException
 from timeout import timeout
 from multiprocessing import Process
 from .classes import DistributedTests
 from .homogenous import run_homogenous_tests
-from .heterogenous import run_heterogenous_tests, mark_user_submission_as_not_active_if_present_in_parallel
+from .heterogenous import run_heterogenous_tests, \
+    mark_user_submission_as_not_active_if_present_in_parallel
 from .db import MongoConnection, DBConnectionException
 
 
@@ -26,7 +27,7 @@ def run_distributed_tests(
     try:
         MongoConnection()
     except DBConnectionException as e:
-        error("MongoDB is not running", True)
+        errorWithException("MongoDB is not running")
 
     distributed_tests = DistributedTests(
         docker_command,
@@ -72,7 +73,9 @@ def run_distributed_tests(
                     continue
 
                 if in_cleanup and line_args[0] not in ["ECMD", "ECMDT"]:
-                    error("Cleanup commands must be at the end of spec file", True)
+                    errorWithException(
+                        "Cleanup commands must be at the end of spec file"
+                    )
 
                 if line_args[0] == "PORTS":
                     distributed_tests.ports_count_to_expose = int(line_args[1])
@@ -94,8 +97,10 @@ def run_distributed_tests(
                     current_test_group = DistributedTests.TestGroup(
                         total_machines, homogenous, heterogenous)
                 elif current_test_group is None:
-                    error("Unexpected %s before DTC in test spec file" %
-                          line_args[0], True)
+                    errorWithException(
+                        "Unexpected %s before DTC in test spec file" %
+                        line_args[0]
+                    )
 
                 if line_args[0] in ["ICMD", "ICMDT"]:
                     current_test_group.commands.append(line)
@@ -177,7 +182,7 @@ def mark_submission_as_inactive_if_present(
     try:
         MongoConnection()
     except DBConnectionException as e:
-        error("MongoDB is not running", False)
+        error("MongoDB is not running")
         return
     mark_user_submission_as_not_active_if_present_in_parallel(
         student_id,

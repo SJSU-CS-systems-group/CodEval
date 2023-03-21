@@ -34,12 +34,12 @@ def debug(message):
     if get_config().show_debug:
         click.echo(click.style(f"{_now()} D {message}", fg='magenta'))
 
-
-def error(message, raise_exception=False):
+def error(message):
     click.echo(click.style(f"{_now()} E {message}", fg='red'))
-    if raise_exception:
-        raise EnvironmentError(message)
 
+def errorWithException(message):
+    error(message)
+    raise EnvironmentError(message)
 
 def info(message):
     click.echo(click.style(f"{_now()} I {message}", fg='blue'))

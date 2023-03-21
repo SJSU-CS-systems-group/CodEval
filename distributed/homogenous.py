@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from commons import debug, error
+from commons import debug, error, errorWithException
 from .classes import DistributedTests
 from .dist_utils import run_external_command, \
     kill_stale_and_run_docker_container, run_command_in_containers, \
@@ -34,7 +34,7 @@ def run_homogenous_tests(
     for command in distributed_tests.tests_setup_commands:
         label, execution_style, bash_command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
-            error("Invalid command: %s" % command, True)
+            errorWithException("Invalid command: %s" % command)
         success, resultlog = run_external_command(
             bash_command=bash_command,
             is_sync=execution_style == "SYNC",
@@ -130,7 +130,7 @@ def run_homogenous_tests(
     for command in distributed_tests.cleanup_commands:
         label, execution_style, bash_command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
-            error("Invalid command: %s" % command, raise_exception=False)
+            error("Invalid command: %s" % command)
         success, resultlog = run_external_command(
             bash_command=bash_command,
             is_sync=execution_style == "SYNC",

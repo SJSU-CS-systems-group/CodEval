@@ -2,7 +2,7 @@ import subprocess
 from typing import Tuple
 from .containers import ContainerData, add_container, get_container_by_name, \
     remove_container_by_name, get_free_port, get_running_containers_count
-from commons import debug, error, warn
+from commons import debug, error, errorWithException, warn
 
 
 def kill_stale_and_run_docker_container(
@@ -25,7 +25,8 @@ def kill_stale_and_run_docker_container(
     _kill_docker_container(container_name, True)
     result = _run_command(docker_command, True)
     if result.returncode != 0:
-        error("Docker run failed: %s" % result.stdout.decode("utf-8"), True)
+        errorWithException("Docker run failed: %s" %
+                           result.stdout.decode("utf-8"))
     container.id = result.stdout.decode("utf-8").strip()
     add_container(container)
 
@@ -78,9 +79,8 @@ def run_command_in_containers(
         port_index = 0
         while "PORT_" in replica_command:
             if port_index >= len(ports_used):
-                error("Not enough ports to expose. Increase PORTS \
-                        in spec file to at least %d" % (port_index+1),
-                      True)
+                errorWithException("Not enough ports to expose. Increase PORTS \
+                        in spec file to at least %d" % (port_index+1))
             replica_command = replica_command.replace(
                 "PORT_%d" % port_index,
                 str(ports_used[port_index])
@@ -112,7 +112,10 @@ def _run_command_in_container(
     out = b''
     container_data = get_container_by_name(container_name)
     if container_data is None:
-        error("Container %s not found" % container_name, fail_on_error)
+        if fail_on_error:
+            errorWithException("Container %s not found" % container_name)
+        else:
+            error("Container %s not found" % container_name)
         return False, out
 
     debug("Running %s %s command in container %s: %s" % (
@@ -147,7 +150,7 @@ def _run_command_in_container(
                 container_name,
                 command,
                 result.stdout.decode("utf-8")
-            ), raise_exception=False)
+            ))
             stdout_split = result.stdout.decode("utf-8").split("\n")
             out += bytes(
                 "Docker command failed for container %s: %s\n%s" % (
@@ -200,7 +203,7 @@ def run_external_command(
             error("Command failed: %s\n%s" % (
                 bash_command,
                 result.stdout.decode("utf-8")
-            ), raise_exception=False)
+            ))
             stdout_split = result.stdout.decode("utf-8").split("\n")
             out += bytes(
                 "Command failed: %s\n%s" % (
@@ -241,7 +244,7 @@ def run_test_command(
     debug("Running test command: %s" % command)
     result = _run_command(command, True)
     if result.returncode != 0:
-        error(result.stdout.decode("utf-8"), raise_exception=False)
+        error(result.stdout.decode("utf-8"))
         message = "Distributed Test %s of %s: FAILED" % (
             str(test_number), str(testcases_count))
         out += bytes(message + "\n", "utf-8")
@@ -282,8 +285,10 @@ def _replace_peer_hostport_placeholders(
         hostport_peers = []
         for i in range(min(max_hostport_peers_count,
                            get_running_containers_count() - 1)):
-            hostport_peers.append(placeholder_replacements['host_ip'] + ':' +
-                                  str(get_container_by_name("replica%d" % i).ports[0]))
+            hostport_peers.append(
+                placeholder_replacements['host_ip'] + ':' +
+                str(get_container_by_name("replica%d" % i).ports[0])
+            )
         command = command[:start_index] + \
             ",".join(hostport_peers) + command[end_index+1:]
     return command
@@ -300,7 +305,9 @@ def _run_command(command: str, is_sync: bool) -> (
     result = None
     if is_sync:
         result = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT)
+            command, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
     else:
         subprocess.Popen(command, shell=True,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
