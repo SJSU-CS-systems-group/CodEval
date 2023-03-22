@@ -46,9 +46,9 @@ def mdToHtml(file_name,file_dict):
             else:
                 if 'URL_OF_HW ' in line:
                     start_index = line.index('URL_OF_HW') + len("URL_OF_HW \"")
-                    end_index=line.index('\")')
+                    end_index=line.index('")')
                     file_name=line[start_index:end_index]
-                    file_url = "URL_OF_HW " + "\"" + file_name +  "\""
+                    file_url = "URL_OF_HW " + '"' + file_name +  '"'
                     try:
                         check_file_in_dict = file_dict[file_name]
                     except:
@@ -61,6 +61,5 @@ def mdToHtml(file_name,file_dict):
         html=markdown.markdown(assignment, extensions=['markdown.extensions.tables'])
     f.close()
     return html
-
 
     
