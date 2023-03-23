@@ -26,26 +26,6 @@ assign_name = ""
 file_dict = {}
 path = os.path.abspath('assignmentFiles')
 
-def _now():
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
-def debug(message):
-    if show_debug:
-        click.echo(click.style(f"{_now()} D {message}", fg='magenta'))
-
-def error(message, exit=False):
-    click.echo(click.style(f"{_now()} E {message}", fg='red'))
-    if exit: exit(2)
-    raise EnvironmentError(message)
-
-
-def info(message):
-    click.echo(click.style(f"{_now()} I {message}", fg='blue'))
-
-
-def warn(message):
-    click.echo(click.style(f"{_now()} W {message}", fg='yellow'))
-
 class CanvasHandler:
     def __init__(self):
         self.parser = ConfigParser()
@@ -316,6 +296,7 @@ class CanvasHandler:
 
 def upload_assignment_files(path,course):
     global file_dict
+    global canvasHandler
     if os.path.exists(path) and not os.path.isfile(path):
         assign_directory = os.listdir(path)
         if not assign_directory:
@@ -325,13 +306,17 @@ def upload_assignment_files(path,course):
                 canvas_folders=course.get_folders()
                 for fol in canvas_folders:
                     if fol.name == "CodEval":
-                        try:
-                            file_spec=fol.upload(path + '/' + file)
-                        except Exception as e:
-                            traceback.print_exc()
-                            error(f'Error uploading the file {file} in CodEval folder due to error : {e}. Exiting!!')
+                        if get_config().dry_run:
+                            info(f'would not upload the files')
+                            file_dict[file]=canvasHandler.parser['SERVER']['url']
                         else:
-                            file_dict[file_spec[1]['filename']]=file_spec[1]['url']
+                            try:
+                                file_spec=fol.upload(path + '/' + file)
+                            except Exception as e:
+                                traceback.print_exc()
+                                errorWithException(f'Error uploading the file {file} in CodEval folder due to error : {e}. Exiting!!')
+                            else:
+                                file_dict[file_spec[1]['filename']]=file_spec[1]['url']
 
 
 @click.group()
@@ -355,24 +340,23 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
     global assign_name
     global path
     global canvasHandler
-    global show_debug
-    show_debug = verbose
+    set_config(verbose,dry_run,False,False)
     try:
         course = canvasHandler.get_course(course_name)
     except Exception as e:
-        error(f'get_course api failed with following error : {e}')
+        errorWithException(f'get_course api failed with following error : {e}')
     else:
         debug(f'Successfully retrieved the course: {course_name}')
     upload_assignment_files(path,course)
     debug(f'Successfully uploaded the files in the CodEval folder')
     spec_abs_path = path + '/' + specname
     if not os.path.isfile(spec_abs_path):
-        error(f'The specification file:{spec_abs_path} does not exist in the CodEval folder. Exiting!!')
+        errorWithException(f'The specification file:{spec_abs_path} does not exist in the CodEval folder. Exiting!!')
     try:
         html = convertMD2Html.mdToHtml(spec_abs_path,file_dict)
     except Exception as e:
         traceback.print_exc()
-        error(f'Error in convertMD2Html::mdToHtml function')
+        errorWithException(f'Error in convertMD2Html::mdToHtml function')
     else:
         debug(f'Successfully converted the assignment description to HTML')
     assign_name = convertMD2Html.assignment_name
@@ -383,7 +367,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
             grp_name = assign_group
             debug(f'The group id is: {grp_name.id}')
     if grp_name == None:
-        error(f'The group name : {group_name} does not exist. Exiting!')
+        errorWithException(f'The group name : {group_name} does not exist. Exiting!')
 
     canvas_assignments = course.get_assignments()
     debug(f'Successfully got all the assignments from the desired course')
@@ -404,7 +388,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
                                                 })
                     except Exception as e:
                         traceback.print_exc()
-                        error(f'Editing assignment {assign_name} failed with the exception : {e}')
+                        errorWithException(f'Editing assignment {assign_name} failed with the exception : {e}')
                     else:
                         info(f'Successfully edited assignment {assign_name}')
 
@@ -434,7 +418,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
                 debug(f'Updated the Discussion Topic by linking it with the corresponding assignment: {assign_name}')
             except Exception as e:
                 traceback.print_exc()
-                error(f'Creating Discussion topic and assignment failed due to the exception: {e}')
+                errorWithException(f'Creating Discussion topic and assignment failed due to the exception: {e}')
             else:
                 info(f'Successfully created assignment and Discussion Topic {assign_name}')
 
