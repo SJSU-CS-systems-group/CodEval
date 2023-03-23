@@ -256,6 +256,7 @@ class CanvasHandler:
                 mark_submission_as_inactive_if_present(
                     distributed_tests_data['assignment_id'],
                     distributed_tests_data['student_id'],
+                    distributed_tests_data['submitted_at']
                 )
                 return out
         except subprocess.TimeoutExpired:
@@ -265,6 +266,7 @@ class CanvasHandler:
             mark_submission_as_inactive_if_present(
                 distributed_tests_data['assignment_id'],
                 distributed_tests_data['student_id'],
+                distributed_tests_data['submitted_at']
             )
             return out
         if has_distributed_tests:

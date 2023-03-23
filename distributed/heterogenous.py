@@ -281,6 +281,7 @@ def run_heterogenous_tests(
 def mark_user_submission_as_not_active_if_present_in_parallel(
     assignment_id: int,
     student_id: str,
+    submitted_at: datetime
 ) -> None:
     """Marks user's submission as not active"""
     if get_config().dry_run:
@@ -288,7 +289,7 @@ def mark_user_submission_as_not_active_if_present_in_parallel(
         return
     Process(
         target=deactivate_user_submission,
-        args=(assignment_id, student_id)
+        args=(assignment_id, student_id, submitted_at)
     ).start()
 
 
