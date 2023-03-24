@@ -12,6 +12,7 @@ from distributed import run_distributed_tests, \
     mark_submission_as_inactive_if_present
 from file_utils import copy_files_to_submission_dir, \
     download_attachment, set_acls, unzip
+import convertMD2Html
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
@@ -19,6 +20,11 @@ CODEVAL_SUFFIX = ".codeval"
 copy_tmpdir = False
 compile_timeout = 20
 has_distributed_tests = False
+canvasHandler = None
+html=""
+assign_name = ""
+file_dict = {}
+path = os.path.abspath('assignmentFiles')
 
 class CanvasHandler:
     def __init__(self):
@@ -288,25 +294,154 @@ class CanvasHandler:
             distributed_tests_data
         )
 
-@click.command("codeval")
+def upload_assignment_files(path,course):
+    global file_dict
+    global canvasHandler
+    if os.path.exists(path) and not os.path.isfile(path):
+        assign_directory = os.listdir(path)
+        if not assign_directory:
+            error("assignmentFiles directory is empty. Exiting!!")
+        else:
+            for file in assign_directory:
+                canvas_folders=course.get_folders()
+                for fol in canvas_folders:
+                    if fol.name == "CodEval":
+                        if get_config().dry_run:
+                            info(f'would not upload the files')
+                            file_dict[file]=canvasHandler.parser['SERVER']['url']
+                        else:
+                            try:
+                                file_spec=fol.upload(path + '/' + file)
+                            except Exception as e:
+                                traceback.print_exc()
+                                errorWithException(f'Error uploading the file {file} in CodEval folder due to error : {e}. Exiting!!')
+                            else:
+                                file_dict[file_spec[1]['filename']]=file_spec[1]['url']
+
+
+@click.group()
+def cmdargs():
+    
+    global canvasHandler
+    canvasHandler = CanvasHandler()
+
+@cmdargs.command()
+@click.argument("course_name")
+@click.argument("specname")
+@click.option("--dry-run/--no-dry-run", default=True, show_default=True,help="Check with Professor")
+@click.option("--verbose/--no-verbose", default=False, show_default=True,help="Verbose actions")
+@click.option("--group_name", default="Assignments", show_default=True,help="Group name in which assignments needs to be created.")
+def create_assignment(dry_run,verbose,course_name,group_name,specname):
+    """
+        Create the assignment in the given course.
+    """
+    global html
+    global file_dict
+    global assign_name
+    global path
+    global canvasHandler
+    set_config(verbose,dry_run,False,False)
+    try:
+        course = canvasHandler.get_course(course_name)
+    except Exception as e:
+        errorWithException(f'get_course api failed with following error : {e}')
+    else:
+        debug(f'Successfully retrieved the course: {course_name}')
+    upload_assignment_files(path,course)
+    debug(f'Successfully uploaded the files in the CodEval folder')
+    spec_abs_path = path + '/' + specname
+    if not os.path.isfile(spec_abs_path):
+        errorWithException(f'The specification file:{spec_abs_path} does not exist in the CodEval folder. Exiting!!')
+    try:
+        html = convertMD2Html.mdToHtml(spec_abs_path,file_dict)
+    except Exception as e:
+        traceback.print_exc()
+        errorWithException(f'Error in convertMD2Html::mdToHtml function')
+    else:
+        debug(f'Successfully converted the assignment description to HTML')
+    assign_name = convertMD2Html.assignment_name
+    
+    grp_name = None
+    for assign_group in course.get_assignment_groups():
+        if assign_group.name == group_name:
+            grp_name = assign_group
+            debug(f'The group id is: {grp_name.id}')
+    if grp_name == None:
+        errorWithException(f'The group name : {group_name} does not exist. Exiting!')
+
+    canvas_assignments = course.get_assignments()
+    debug(f'Successfully got all the assignments from the desired course')
+    canvas_assign_names = [assign.name for assign in canvas_assignments]
+    if assign_name in canvas_assign_names:
+        for assignment in canvas_assignments:
+            if assignment.name == assign_name:
+                if dry_run:
+                    info(f"would update {assign_name}.")
+                else:
+                    try:
+                        assignment.edit(assignment={'name': assign_name,
+                                                'assignment_group_id': grp_name.id,
+                                                'description': html,
+                                                'points_possible': 100,
+                                                'published': False,                                                                                                     'submission_types':["online_upload"],
+                                                'allowed_extensions':["zip"],
+                                                })
+                    except Exception as e:
+                        traceback.print_exc()
+                        errorWithException(f'Editing assignment {assign_name} failed with the exception : {e}')
+                    else:
+                        info(f'Successfully edited assignment {assign_name}')
+
+    else:
+        if dry_run:
+            info(f"would create {assignment_name}")
+        else:
+            try:
+                # Create the discussion Topic
+                dis_topic=course.create_discussion_topic(title = assign_name,
+                                                     message="")
+                debug(f'Created Discussion Topic: {assign_name}')
+                # get the url of the discussion topic
+                disUrlHtml = f'<a href={dis_topic.html_url}>{dis_topic.title}</a>'
+                # Create the assignment with the assign_name
+                created_assignment=course.create_assignment({'name': assign_name,
+                                      'assignment_group_id': grp_name.id,
+                                      'description':html.replace("HW_URL",disUrlHtml),
+                                      'points_possible':100,
+                                      'published':False,
+                                      'submission_types':["online_upload"],
+                                      'allowed_extensions':["zip"],
+                                        })
+                debug(f'Crated new assignment: {assign_name}')
+                # Update the discussion topic with the assignment link
+                dis_topic.update(message=f'This Discussion is for Assignment <a href={created_assignment.html_url}>{assign_name}</a>',)
+                debug(f'Updated the Discussion Topic by linking it with the corresponding assignment: {assign_name}')
+            except Exception as e:
+                traceback.print_exc()
+                errorWithException(f'Creating Discussion topic and assignment failed due to the exception: {e}')
+            else:
+                info(f'Successfully created assignment and Discussion Topic {assign_name}')
+
+@cmdargs.command()
 @click.argument("course_name")
 @click.option("--dry-run/--no-dry-run", default=True, show_default=True,
               help="Grade submissions but don't update canvas")
 @click.option("--verbose/--no-verbose", default=False, show_default=True,
-              help="Verbose actions")
+             help="Verbose actions")
 @click.option("--force/--no-force", default=False, show_default=True,
               help="Grade submissions even if already graded")
 @click.option("--copytmpdir/--no-copytmpdir", default=False, show_default=True, help="copy tmpdirs to current directory")
-def grade_course_submissions(course_name, dry_run, verbose, force, copytmpdir):
+def grade_submissions(dry_run,verbose,course_name,force, copytmpdir):
     """
     Grade unsubmitted graded submission in the given course.
     """
     if dry_run:
         warn("This is a dry run. No updates to canvas will be made.")
-    canvasHandler = CanvasHandler()
+
+    global canvasHandler
     set_config(verbose, dry_run, force, copytmpdir)
     canvasHandler.grade_submissions(course_name)
 
 
 if __name__ == "__main__":
-    grade_course_submissions()
+    cmdargs()
