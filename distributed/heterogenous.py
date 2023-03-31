@@ -185,20 +185,43 @@ def run_heterogenous_tests(
                         passed = False
                         break
                 elif label in ["ICMD", "ICMDT"]:
-                    execution_style, bash_command = rest.split(" ", 1)
+                    execution_style, containers, bash_command = rest.split(" ", 2)
 
                     container_names = []
+                    current_username = placeholder_replacements['username']
                     containers_pr = {
                         **placeholder_replacements,
-                        'username': [placeholder_replacements['username']]
+                        'username': []
                     }
-                    for i in range(test_group.total_machines):
-                        container_names.append("replica%d" % i)
-                        if i > 0:
-                            containers_pr['username'].append(
-                                current_combination[i-1]['student_name']
-                                .replace(" ", "_").lower()[:10]
-                            )
+                    if containers == '*':
+                        for i in range(test_group.total_machines):
+                            container_names.append("replica%d" % i)
+                            if i == 0:
+                                containers_pr['username'].append(
+                                    current_username
+                                )
+                            else:
+                                containers_pr['username'].append(
+                                    current_combination[i-1]['student_name']
+                                    .replace(" ", "_").lower()[:10]
+                                )
+                    else:
+                        container_indexes = containers.split(',')
+                        for index in container_indexes:
+                            if int(index) >= test_group.total_machines:
+                                errorWithException(
+                                    "Invalid container index: %s" % index
+                                )
+                            container_names.append("replica%s" % index)
+                            if index == '0':
+                                containers_pr['username'].append(
+                                    current_username
+                                )
+                            else:
+                                containers_pr['username'].append(
+                                    current_combination[int(index)-1]['student_name']
+                                    .replace(" ", "_").lower()[:10]
+                                )
                     success, resultlog = run_command_in_containers(
                         container_names=container_names,
                         command=bash_command,

@@ -80,15 +80,22 @@ def run_homogenous_tests(
                         passed = False
                         break
                 elif label in ["ICMD", "ICMDT"]:
-                    execution_style, bash_command = rest.split(" ", 1)
+                    execution_style, containers, bash_command = rest.split(" ", 2)
 
                     container_names = []
-                    for i in range(test_group.total_machines):
-                        container_names.append("replica%d" % i)
+                    if containers == '*':
+                        container_names = ["replica%d" % i for i in range(test_group.total_machines)]
+                    else:
+                        container_indexes = containers.split(',')
+                        for index in container_indexes:
+                            if int(index) >= test_group.total_machines:
+                                errorWithException("Invalid container index: %s" % index)
+                            container_names.append("replica%s" % index)
+
                     containers_pr = {
                         **placeholder_replacements,
                         'username': [placeholder_replacements['username']] * \
-                            test_group.total_machines
+                            len(container_names)
                     }
                     success, resultlog = run_command_in_containers(
                         container_names=container_names,
