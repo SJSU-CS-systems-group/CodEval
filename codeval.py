@@ -204,8 +204,13 @@ class CanvasHandler:
                                 if get_config().dry_run:
                                     info(f"would have said {message} to {submission.user['name']}")
                                 else:
-                                    debug(f"said {message} to {submission.user['name']}")
-                                    submission.edit(comment={'text_comment': f'[AG]\n{message}'})
+                                    try:
+                                        debug(f"said {message} to {submission.user['name']}")
+                                        # nulls in messages are particularly problematic for canva
+                                        message = message.replace("\0", "\\0")
+                                        submission.edit(comment={'text_comment': f'[AG]\n{message}'})
+                                    except Exception as e:
+                                        warn(f"ERROR {e} sending {message} to {submission.user['name']}")
 
                 except Exception as e:
                     traceback.print_exc()
