@@ -85,10 +85,12 @@ check_test () {
                 echo -e "HINT: $HINT"
             fi
             echo -e "    Command ran: $test_args"
+            shopt -s nullglob
             for file in ./evaluationLogs/*
             do
                cat $file
             done 
+            shopt -u nullglob
         fi
         exit 2
     fi
