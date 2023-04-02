@@ -352,6 +352,8 @@ def _add_comment_to_user_submissions(
 ) -> None:
     """Adds a comment to users' submissions"""
     for student_id in student_ids:
+        # canvas doesn't like nulls in messages
+        comment = comment.replace("\0", "\\0")
         canvas_assignment.get_submission(student_id).edit(comment={
             'text_comment': '[AG]\n\n' + comment
         })

@@ -206,7 +206,7 @@ class CanvasHandler:
                                 else:
                                     try:
                                         debug(f"said {message} to {submission.user['name']}")
-                                        # nulls in messages are particularly problematic for canva
+                                        # nulls in messages are particularly problematic for canvas
                                         message = message.replace("\0", "\\0")
                                         submission.edit(comment={'text_comment': f'[AG]\n{message}'})
                                     except Exception as e:
