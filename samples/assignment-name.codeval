@@ -1,0 +1,63 @@
+# Download zip file. Will be unzipped by CodEval autopmatically.
+# The contents will be available in a temporary directory along with the user submission
+Z assignment-helper.zip
+
+# Compile timeout, different from Timeout of test cases
+CTO 30
+# Compile command
+C mvn -T 1C clean package
+
+# Hidden testcase. If fails, a message that test case is hidden is shown, along with HINT if specified below
+HT test -f ./target/assignment-1.0-spring-boot.jar && echo "File exists" || echo "Jar file doesn't exist"
+# Expected exit code of the test test case command above
+X 0
+# Expected output
+O File exists
+# Optional tag to show a "hint" about this test case
+HINT Is your code compiling properly? Is it generating a jar with the name "assignment-1.0-spring-boot.jar"?
+
+# Marks the start of distributed test cases
+--DT--
+# global timeout for distributed tests (for heterogenous, it's normally a multiple of this, such as 2x)
+GTO 300
+# The number of ports needed to expose per docker container when initializing.
+# Should be the maximum number of ports that will be needed per container
+PORTS 1
+
+# Initializing tests before any DTC tag. Supports only ECMD/ECMDT
+# ECMD: Command runs on the host machine. Ignore if error. ECMDT: Evaluation fails if command returns error
+# ASYNC: CodEval doesnt wait for command to execute. SYNC: CodeVal waits for command to execute.
+# If the tag is ECMDT ASYNC, CodEval waits for 3 seconds to check if command failed, then continues execution
+ECMD ASYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar server 2181 datadir
+ECMD SYNC sleep 10
+ECMD SYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar client -server HOST_IP:2181 create /path
+ECMD SYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar client -server HOST_IP:2181 create /path/subpath
+ECMDT SYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar client -server HOST_IP:2181 get /path/subpath
+
+# DTC denotes start of a Distributed Test Config group. 5 docker containers will start
+# HOM (homogenous): 5 containers will run user's own submission [Optional]
+# HET (heterogenous): A combination of 1 container running current user's submission + 4 containers running other users' submissions [Optional]
+DTC 5 HOM HET
+# ICMD: Command runs in each docker machine. ICMDT: Fail evaluation if command fails
+# SYNC/ASYNC: Same as ECMD/ECMDT above
+# *: run this command on all docker containers
+ICMD SYNC * mvn -f ./submissions -T 1C clean package
+ICMDT ASYNC * java -jar ./submissions/target/assignment-1.0-spring-boot.jar USERNAME HOST_IP:PORT_0 HOST_IP:2181 /path
+ECMD SYNC sleep 5
+# Runs on host machine. No. of distributed tests in spec file = number of TESTCMD
+TESTCMD java -jar TEMP_DIR/zoolunch-1.48.1-spring-boot.jar --zk=HOST_IP:2181 --znode=/path --force-supervision 1-test-best-case
+TESTCMD java -jar TEMP_DIR/zoolunch-1.48.1-spring-boot.jar --zk=HOST_IP:2181 --znode=/path --force-supervision 2-outliers-test
+TESTCMD java -jar TEMP_DIR/zoolunch-1.48.1-spring-boot.jar --zk=HOST_IP:2181 --znode=/path --force-supervision 3-skip-test
+
+# Note that this distributed test config group is only homogenous.
+DTC 5 HOM
+# 0,2,3: Run this command in docker containers #0, #2, and #3. (0-based indexing)
+# This is just a sample, doesn't do anything sensible
+ICMD SYNC 0,2,3 mvn -f ./submissions -T 1C clean package
+ICMDT ASYNC 0,2,3 java -jar ./submissions/target/assignment-1.0-spring-boot.jar USERNAME HOST_IP:PORT_0 HOST_IP:2181 /path
+ECMD SYNC sleep 5
+TESTCMD java -jar TEMP_DIR/zoolunch-1.48.1-spring-boot.jar --zk=HOST_IP:2181 --znode=/path --force-supervision 4-leader-sleep-test
+
+# Cleanup after tests. Supports only ECMD/ECMDT
+--DTCLEAN--
+ECMD ASYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar client -server HOST_IP:2181 deleteall /path
