@@ -11,6 +11,7 @@ token=<canvas token>
 precommand=
 command=
 ```
+Refer to a sample codeval.ini file [here](samples/codeval.ini)
 ### Command to run:  
 `python3 codeval.py <a unique part of assignment name> [FLAGS]`  
 Example:  
@@ -54,6 +55,8 @@ Tags used in a spec file (\<assignment name>.codeval)
 | X | Exit Code | Specifies the expected exit code for a test case. Defaults to zero. |
 | SS | Start Server | Command containing timeout (wait until server starts), kill timeout (wait to kill the server), and the command to start a server |
 
+Refer to a sample spec file [here](samples/assignment-name.codeval)
+
 
 ## 2. Test Distributed Programming Assignments
 ### (or complex non I/O programs)
@@ -71,6 +74,7 @@ host_ip=
 url=
 db=
 ```
+Refer to a sample codeval.ini file [here](samples/codeval.ini)
 
 ### Command to run
 is the same as the [command in #1](#command-to-run):  
@@ -96,6 +100,8 @@ is the same as the [command in #1](#command-to-run):
 | HOST_IP | used in ECMD/ECMDT/ICMD/ICMDT to be replaced by the host's IP specified in codeval.ini |
 | USERNAME | used in ICMD/ICMDT to be replaced by the user's username whose submission is being evaluated |
 | PORT_$int | used in ICMD/ICMDT to be replaced by a port number assigned to the running docker continer. $int needs to be <= PORT value in the specification |
+
+Refer to a sample spec file [here](samples/assignment-name.codeval)
 
 ### Notes
 - The config file `codeval.ini` needs to contain the extra entries only if the tag `--DT--` exists in the specification file
