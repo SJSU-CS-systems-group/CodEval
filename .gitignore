@@ -50,6 +50,7 @@ Thumbs.db
 
 # Python virtual Environment
 venv/
+pyvenv.cfg
 
 # Config Files
 autograder.ini
@@ -58,6 +59,9 @@ autograder.ini
 temp/
 submissions/
 fixed/
+
+# Assignment Files
+/assignmentFiles/
 
 #random
 canvas_tool.py
