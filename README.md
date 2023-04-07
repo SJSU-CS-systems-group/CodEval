@@ -15,7 +15,7 @@ command=
 Refer to a sample codeval.ini file [here](samples/codeval.ini)
 
 ### Command to run:  
-`python3 codeval.py <a unique part of assignment name> [FLAGS]`  
+`python3 codeval.py grade-submissions <a unique part of course name> [FLAGS]`
 Example:  
 If the course name on Canvas is CS 149 - Operating Systems, the command can be:  
 `python3 codeval.py CS\ 149`  
@@ -38,7 +38,7 @@ Use a part of the course name that can uniquely identify the course on Canvas.
   - Copy temporary directory content to current directory for debugging
 
 ### Specification Tags
-Tags used in a spec file (\<assignment name>.codeval)
+Tags used in a spec file (\<course name>.codeval)
 
 | Tag | Meaning | Function |
 |---|---|---|
@@ -80,7 +80,7 @@ Refer to a sample codeval.ini file [here](samples/codeval.ini)
 
 ### Command to run
 is the same as the [command in #1](#command-to-run):  
-`python3 codeval.py <a unique part of assignment name> [FLAGS]`
+`python3 codeval.py grade-submissions <a unique part of course name> [FLAGS]`
 
 ### Distributed Specification Tags  
 
