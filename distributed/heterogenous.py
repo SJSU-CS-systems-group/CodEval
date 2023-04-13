@@ -10,11 +10,12 @@ from file_utils import download_attachment, unzip, set_acls, \
 from .classes import DistributedTests
 from .dist_utils import kill_stale_and_run_docker_container, \
     run_external_command, run_command_in_containers, run_test_command, \
-    kill_running_docker_container
+    kill_running_docker_container, kill_stale_and_run_controller_container, \
+    kill_running_controller_container
 from .db import add_user_submission_if_not_present, \
     get_other_user_submissions, add_score_to_submissions, \
     deactivate_user_submission
-from .containers import clear_running_containers
+from .containers import clear_running_containers, clear_ports_in_use
 
 
 def run_heterogenous_tests(
@@ -32,6 +33,7 @@ def run_heterogenous_tests(
 
     # Clear the list of running containers
     clear_running_containers()
+    clear_ports_in_use()
 
     debug("Running tests with other users' submissions")
     has_heterogenous_tests = False
@@ -53,13 +55,20 @@ def run_heterogenous_tests(
         'username': student_name.replace(" ", "_").lower()[:10]
     }
 
+    # start a controller container to emulate host machine
+    kill_stale_and_run_controller_container(
+        docker_command=distributed_tests.docker_command,
+        temp_dir=distributed_tests.temp_dir,
+        ports_count=distributed_tests.ports_count_to_expose
+    )
+
     # Run commands to setup tests
     for command in distributed_tests.tests_setup_commands:
-        label, execution_style, bash_command = command.split(" ", 2)
+        label, execution_style, command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
             errorWithException("Invalid command: %s" % command)
         success, resultlog = run_external_command(
-            bash_command=bash_command,
+            command=command,
             is_sync=execution_style == "SYNC",
             fail_on_error=label == "ECMDT",
             placeholder_replacements=placeholder_replacements,
@@ -173,9 +182,9 @@ def run_heterogenous_tests(
             for command in test_group.commands:
                 label, rest = command.split(" ", 1)
                 if label in ["ECMD", "ECMDT"]:
-                    execution_style, bash_command = rest.split(" ", 1)
+                    execution_style, command = rest.split(" ", 1)
                     success, resultlog = run_external_command(
-                        bash_command=bash_command,
+                        command=command,
                         is_sync=execution_style == "SYNC",
                         fail_on_error=label == "ECMDT",
                         placeholder_replacements=placeholder_replacements,
@@ -185,7 +194,7 @@ def run_heterogenous_tests(
                         passed = False
                         break
                 elif label in ["ICMD", "ICMDT"]:
-                    execution_style, containers, bash_command = rest.split(" ", 2)
+                    execution_style, containers, command = rest.split(" ", 2)
 
                     container_names = []
                     current_username = placeholder_replacements['username']
@@ -224,7 +233,7 @@ def run_heterogenous_tests(
                                 )
                     success, resultlog = run_command_in_containers(
                         container_names=container_names,
-                        command=bash_command,
+                        command=command,
                         is_sync=execution_style == "SYNC",
                         fail_on_error=label == "ICMDT",
                         placeholder_replacements=containers_pr,
@@ -284,11 +293,11 @@ def run_heterogenous_tests(
     out += b'\n'.join(combination_outputs)
     # Cleanup after all tests
     for command in distributed_tests.cleanup_commands:
-        label, execution_style, bash_command = command.split(" ", 2)
+        label, execution_style, command = command.split(" ", 2)
         if label not in ["ECMD", "ECMDT"]:
             error("Invalid command: %s" % command)
         success, resultlog = run_external_command(
-            bash_command=bash_command,
+            command=command,
             is_sync=execution_style == "SYNC",
             fail_on_error=label == "ECMDT",
             placeholder_replacements=placeholder_replacements,
@@ -297,6 +306,7 @@ def run_heterogenous_tests(
         if not success and label == "ECMDT":
             passed = False
             break
+    kill_running_controller_container(wait_to_kill=True)
     debug("Finished tests with other submissions. Passed: %s" % passed)
     return passed, out
 

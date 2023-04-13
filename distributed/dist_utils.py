@@ -1,8 +1,45 @@
 import subprocess
-from typing import Tuple
+from typing import Tuple, List
 from .containers import ContainerData, add_container, get_container_by_name, \
-    remove_container_by_name, get_free_port, get_running_containers_count
+    remove_container_by_name, get_free_port, get_running_containers_count, \
+    add_new_controller_container, get_controller_container, \
+    remove_controller_container
 from commons import debug, error, errorWithException, warn
+
+
+def _kill_stale_and_run_docker_container(
+        container: ContainerData,
+        docker_command: str,
+        temp_dir: str,
+        ports_count: int,
+) -> ContainerData:
+    ports_subcommand = ""
+    for _ in range(ports_count):
+        port = get_free_port()
+        container.ports.append(port)
+        ports_subcommand += "-p %d:%d " % (port, port)
+    docker_command = docker_command.replace("NAME", container.name)
+    docker_command = docker_command.replace("SUBMISSIONS", temp_dir)
+    docker_command = docker_command.replace("PORTS", ports_subcommand)
+
+    debug("Docker run command: %s" % docker_command)
+    _kill_docker_container(container.name, True)
+    result = _run_command(docker_command, True)
+    if result.returncode != 0:
+        errorWithException("Docker run failed: %s" %
+                           result.stdout.decode("utf-8"))
+    container.id = result.stdout.decode("utf-8").strip()
+
+
+def kill_stale_and_run_controller_container(
+        docker_command: str,
+        temp_dir: str,
+        ports_count: int,
+) -> None:
+    container = add_new_controller_container()
+    _kill_stale_and_run_docker_container(
+        container, docker_command, temp_dir, ports_count
+    )
 
 
 def kill_stale_and_run_docker_container(
@@ -10,24 +47,11 @@ def kill_stale_and_run_docker_container(
         docker_command: str,
         temp_dir: str,
         ports_count: int,
-) -> bytes:
-    ports_subcommand = ""
+) -> None:
     container = ContainerData(container_name)
-    for _ in range(ports_count):
-        port = get_free_port()
-        container.ports.append(port)
-        ports_subcommand += "-p %d:%d " % (port, port)
-    docker_command = docker_command.replace("NAME", container_name)
-    docker_command = docker_command.replace("SUBMISSIONS", temp_dir)
-    docker_command = docker_command.replace("PORTS", ports_subcommand)
-
-    debug("Docker run command: %s" % docker_command)
-    _kill_docker_container(container_name, True)
-    result = _run_command(docker_command, True)
-    if result.returncode != 0:
-        errorWithException("Docker run failed: %s" %
-                           result.stdout.decode("utf-8"))
-    container.id = result.stdout.decode("utf-8").strip()
+    _kill_stale_and_run_docker_container(
+        container, docker_command, temp_dir, ports_count
+    )
     add_container(container)
 
 
@@ -41,16 +65,50 @@ def kill_running_docker_container(
         remove_container_by_name(container_name)
 
 
+def kill_running_controller_container(wait_to_kill: bool) -> None:
+    container = get_controller_container()
+    if container is not None:
+        _kill_docker_container(container.id, wait_to_kill)
+        remove_controller_container()
+
+
 def _kill_docker_container(
     container_identifier: str,
     wait_to_kill: bool
 ) -> None:
-    ''' Asynchronously kill a docker container and remove it '''
+    ''' Kill a docker container and remove it '''
     # Run docker rm irrespective of whether docker kill succeeds or not.
     _run_command("docker stop %s || true && docker rm %s " % (
         container_identifier,
         container_identifier
     ), wait_to_kill)
+
+
+def _replace_ports_in_command(
+    command: str,
+    port_placeholder: str,
+    ports_used: List[str],
+) -> str:
+    '''
+    Replace the port placeholder with the actual ports used by the container.
+    '''
+    port_start_index = command.find(port_placeholder)
+    while port_start_index != -1:
+        port_end_index = port_start_index + len(port_placeholder)
+        while port_end_index < len(command) and \
+                command[port_end_index].isdigit():
+            port_end_index += 1
+        port_index = int(
+            command[port_start_index+len(port_placeholder):port_end_index])
+        if port_index >= len(ports_used):
+            errorWithException("Not enough ports to expose. Increase PORTS " +
+                               "in spec file to at least %d" % (port_index+1))
+        command = command.replace(
+            "%s%d" % (port_placeholder, port_index),
+            str(ports_used[port_index])
+        )
+        port_start_index = command.find(port_placeholder)
+    return command
 
 
 def run_command_in_containers(
@@ -70,22 +128,21 @@ def run_command_in_containers(
     no_error = True
     debug("Running command %s in containers %s" % (command, container_names))
     for idx, container_name in enumerate(container_names):
-        ports_used = get_container_by_name(container_name).ports
         replica_command = command
         replica_command = replica_command.replace(
             "USERNAME",
             placeholder_replacements['username'][idx] + '_' + str(idx)
         )
-        port_index = 0
-        while "PORT_" in replica_command:
-            if port_index >= len(ports_used):
-                errorWithException("Not enough ports to expose. Increase PORTS \
-                        in spec file to at least %d" % (port_index+1))
-            replica_command = replica_command.replace(
-                "PORT_%d" % port_index,
-                str(ports_used[port_index])
-            )
-            port_index += 1
+        replica_command = _replace_ports_in_command(
+            replica_command,
+            "H_PORT_",
+            get_controller_container().ports
+        )
+        replica_command = _replace_ports_in_command(
+            replica_command,
+            "PORT_",
+            get_container_by_name(container_name).ports
+        )
         success, logs = _run_command_in_container(
             container_name, replica_command, is_sync, fail_on_error
         )
@@ -174,40 +231,59 @@ def _run_command_in_container(
 
 
 def run_external_command(
-    bash_command: str,
+    command: str,
     is_sync: bool,
     fail_on_error: bool,
     placeholder_replacements: dict,
 ) -> (Tuple[bool, bytes]):
     '''
-    Run command on the host machine.
+    Run command on the controller container emulating a host machine.
     Returns a tuple (success, out), where success is a boolean indicating
     whether the test passed or not, and out is a string containing the
     output of the test.
     '''
     out = b''
-    bash_command = bash_command.replace("HOST_IP",
-                                        placeholder_replacements['host_ip'])
-    bash_command = bash_command.replace("TEMP_DIR",
-                                        placeholder_replacements['temp_dir'])
-    debug("Running %s %s command on host: %s" % (
+    container_data = get_controller_container()
+    command = command.replace("HOST_IP", placeholder_replacements['host_ip'])
+    command = _replace_ports_in_command(
+        command,
+        "H_PORT_",
+        container_data.ports
+    )
+    debug("Running %s %s command in controller container: %s" % (
         'halting' if fail_on_error else 'non-halting',
         'sync' if is_sync else 'async',
-        bash_command
+        command
     ))
-    result = _run_command(bash_command, is_sync)
+
+
+    if not is_sync and fail_on_error:
+        command = command + ' 2> outlog || echo $? > failed_status'
+
+    docker_command = "docker exec %s bash -c '%s'" % (
+        container_data.id, command
+    )
+    result = _run_command(docker_command, is_sync)
     if not is_sync:
-        return True, out
+        if not fail_on_error:
+            return True, out
+        else:
+            result = _run_command(
+                "sleep 3 && docker exec %s bash -c '( ! test -f failed_status ) || ( cat outlog && false )'" % (
+                    container_data.id
+                ),
+                True
+            )
     if result.returncode != 0:
         if fail_on_error:
-            error("Command failed: %s\n%s" % (
-                bash_command,
+            error("Docker command failed for controller container: %s\n%s" % (
+                command,
                 result.stdout.decode("utf-8")
             ))
             stdout_split = result.stdout.decode("utf-8").split("\n")
             out += bytes(
-                "Command failed: %s\n%s" % (
-                    bash_command,
+                "Docker command failed for controller container: %s\n%s" % (
+                    command,
                     "\n".join(
                         stdout_split[:5] +
                         ["..."] +
@@ -217,8 +293,10 @@ def run_external_command(
                 ), "utf-8"
             )
         else:
-            warn("Command failed: %s\n%s" %
-                 (bash_command, result.stdout.decode("utf-8")))
+            warn("Docker command failed for controller container: %s\n%s" % (
+                command,
+                result.stdout.decode("utf-8")
+            ))
     return result.returncode == 0, out
 
 
@@ -236,13 +314,21 @@ def run_test_command(
     output of the test.
     '''
     out = b''
+    container_data = get_controller_container()
     command = command.replace("HOST_IP", placeholder_replacements['host_ip'])
-    command = command.replace("TEMP_DIR", placeholder_replacements['temp_dir'])
+    command = _replace_ports_in_command(
+        command,
+        "H_PORT_",
+        container_data.ports
+    )
+    # command = command.replace("TEMP_DIR", placeholder_replacements['temp_dir'])
     command = _replace_peer_hostport_placeholders(command,
                                                   placeholder_replacements)
-
-    debug("Running test command: %s" % command)
-    result = _run_command(command, True)
+    docker_command = "docker exec %s bash -c '%s'" % (
+        container_data.id, command
+    )
+    debug("Running test command: %s" % docker_command)
+    result = _run_command(docker_command, True)
     if result.returncode != 0:
         error(result.stdout.decode("utf-8"))
         message = "Distributed Test %s of %s: FAILED" % (
@@ -295,12 +381,13 @@ def _replace_peer_hostport_placeholders(
 
 
 def _run_command(command: str, is_sync: bool) -> (
-    subprocess.CompletedProcess or None
+    subprocess.CompletedProcess or subprocess.Popen
 ):
     '''
     Run a command in the host machine.
-    If is_sync is True, wait for the command to finish and return the result.
-    If is_sync is False, return None.
+    If is_sync is True, wait for the command to finish and return a 
+        CompletedProcess instance.
+    If is_sync is False, return Popen instance.
     '''
     result = None
     if is_sync:
@@ -309,6 +396,6 @@ def _run_command(command: str, is_sync: bool) -> (
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
     else:
-        subprocess.Popen(command, shell=True,
+        result = subprocess.Popen(command, shell=True,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     return result

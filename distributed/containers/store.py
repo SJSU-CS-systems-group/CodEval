@@ -4,9 +4,32 @@ from .classes import ContainerData
 
 _port_range = (10000, 20000)
 
+_running_controller_container: ContainerData = None
 _running_containers: List[ContainerData] = []
+
 _ports_in_use: Set[int] = set()
 
+
+def add_new_controller_container() -> ContainerData:
+    global _running_controller_container
+    if _running_controller_container is not None:
+        raise Exception("Controller container already running")
+    _running_controller_container = ContainerData(name='controller')
+    return _running_controller_container
+
+def get_controller_container() -> ContainerData:
+    global _running_controller_container
+    if _running_controller_container is None:
+        raise Exception("Controller container not found")
+    return _running_controller_container
+
+def remove_controller_container() -> None:
+    global _running_controller_container
+    if _running_controller_container is not None:
+        for port in _running_controller_container.ports:
+            if port in _ports_in_use:
+                _ports_in_use.remove(port)
+    _running_controller_container = None
 
 def add_container(container_data: ContainerData) -> None:
     _running_containers.append(container_data)
@@ -25,6 +48,8 @@ def get_running_containers_count() -> int:
 
 def clear_running_containers() -> None:
     _running_containers.clear()
+
+def clear_ports_in_use() -> None:
     _ports_in_use.clear()
 
 
