@@ -174,7 +174,8 @@ class CanvasHandler:
                     self.get_valid_test_file(course_name, codeval_folder, assignment.name, temp_fixed)
                     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
                         if hasattr(submission, 'attachments') and (
-                                get_config().force or self.should_check_submission(submission)):
+                                get_config().force or self.should_check_submission(submission)) and \
+                                (get_config().student_name is None or get_config().student_name.lower() in submission.user['name'].lower()):
                             with tempfile.TemporaryDirectory(prefix="codeval", suffix="submission") as tmpdir:
                                 debug(f"tmpdir is {tmpdir}")
                                 set_acls(tmpdir)
@@ -436,7 +437,8 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
 @click.option("--force/--no-force", default=False, show_default=True,
               help="Grade submissions even if already graded")
 @click.option("--copytmpdir/--no-copytmpdir", default=False, show_default=True, help="copy tmpdirs to current directory")
-def grade_submissions(dry_run,verbose,course_name,force, copytmpdir):
+@click.option("--student", default=None, show_default=True, help="part of student name to match")
+def grade_submissions(dry_run,verbose,course_name,force, copytmpdir, student):
     """
     Grade unsubmitted graded submission in the given course.
     """
@@ -444,7 +446,7 @@ def grade_submissions(dry_run,verbose,course_name,force, copytmpdir):
         warn("This is a dry run. No updates to canvas will be made.")
 
     global canvasHandler
-    set_config(verbose, dry_run, force, copytmpdir)
+    set_config(verbose, dry_run, force, copytmpdir, student)
     canvasHandler.grade_submissions(course_name)
 
 

@@ -10,6 +10,7 @@ class _Config():
     dry_run: bool
     force: bool
     copy_tmpdir: bool
+    student_name: str
 
     # static global config instance
     _instance: '_Config' = None
@@ -17,12 +18,12 @@ class _Config():
 
 def get_config():
     if _Config._instance is None:
-        _Config._instance = _Config(False, True, False, False)
+        _Config._instance = _Config(False, True, False, False, None)
     return _Config._instance
 
 
-def set_config(show_debug, dry_run, force, copy_tmpdir):
-    _Config._instance = _Config(show_debug, dry_run, force, copy_tmpdir)
+def set_config(show_debug, dry_run, force, copy_tmpdir, student_name):
+    _Config._instance = _Config(show_debug, dry_run, force, copy_tmpdir, student_name)
     return _Config._instance
 
 
