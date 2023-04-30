@@ -399,7 +399,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
 
     else:
         if dry_run:
-            info(f"would create {assignment_name}")
+            info(f"would create {assign_name}")
         else:
             try:
                 # Create the discussion Topic
