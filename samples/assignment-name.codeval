@@ -25,9 +25,10 @@ GTO 300
 PORTS 1
 
 # Initializing tests before any DTC tag. Supports only ECMD/ECMDT
-# ECMD: Command runs on the host machine. Ignore if error. ECMDT: Evaluation fails if command returns error
+# ECMD: Command runs on the a controller container emulating a host machine. Ignore if error.
+# ECMDT: Evaluation fails if command returns error
 # ASYNC: CodEval doesnt wait for command to execute. SYNC: CodeVal waits for command to execute.
-# If the tag is ECMDT ASYNC, CodEval waits for 3 seconds to check if command failed, then continues execution
+# If the tag is ECMDT ASYNC, CodEval waits for 3 seconds to check if command failed, then continues with next instruction
 ECMD ASYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar server 2181 datadir
 ECMD SYNC sleep 10
 ECMD SYNC java -jar TEMP_DIR/zookeeper-dev-fatjar.jar client -server HOST_IP:2181 create /path
