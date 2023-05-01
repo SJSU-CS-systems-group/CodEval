@@ -166,7 +166,8 @@ def run_distributed_tests(
         else:
             mark_user_submission_as_not_active_if_present_in_parallel(
                 distributed_tests_data['student_id'],
-                distributed_tests_data['assignment_id']
+                distributed_tests_data['assignment_id'],
+                distributed_tests_data['submitted_at']
             )
 
     except EnvironmentError as e:
@@ -177,6 +178,7 @@ def run_distributed_tests(
 def mark_submission_as_inactive_if_present(
     assignment_id: str,
     student_id: str,
+    submitted_at: str
 ) -> None:
     # check mongo is running
     try:
@@ -186,5 +188,6 @@ def mark_submission_as_inactive_if_present(
         return
     mark_user_submission_as_not_active_if_present_in_parallel(
         student_id,
-        assignment_id
+        assignment_id,
+        submitted_at
     )
