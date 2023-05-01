@@ -263,7 +263,7 @@ class CanvasHandler:
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         try:
             out, err = p.communicate(timeout=compile_timeout)
-            if p.returncode != 0:
+            if p.returncode != 0 and has_distributed_tests:
                 mark_submission_as_inactive_if_present(
                     distributed_tests_data['assignment_id'],
                     distributed_tests_data['student_id'],

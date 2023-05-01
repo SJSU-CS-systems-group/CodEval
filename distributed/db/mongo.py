@@ -21,7 +21,7 @@ class MongoConnection(object):
             if not self._parser.has_section('MONGO') or \
                 not self._parser.has_option('MONGO', 'url') or \
                 not self._parser.has_option('MONGO', 'db'):
-                raise Exception("MongoDB configuration not found")
+                raise DBConnectionException("MongoDB configuration not found")
         return self._parser
 
     def _connect(self):
