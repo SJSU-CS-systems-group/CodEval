@@ -1,5 +1,5 @@
 from canvasapi import Canvas
-from convertDictToMkdn import MkdnParser
+from mkdnparser import MkdnParser
 import json
 import os
 
