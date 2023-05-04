@@ -75,8 +75,8 @@ class CourseParser:
     def export_to_json(self):
         selected_assignment_list = self.get_assignments()
         for assignment_dict in selected_assignment_list:
-            updated_assignment = update_parameters(assignment_dict, ASSIGNMENT_REQUIRED_PARAMETERS, ASSIGNMENT_OPTIONAL_PARAMETERS)
-            self.write_to_json(self.dir_name + assignment_dict['name'] + str(assignment_dict['id']) + '.json', assignment_dict)
+            updated_assignment_dict = update_parameters(assignment_dict, ASSIGNMENT_REQUIRED_PARAMETERS, ASSIGNMENT_OPTIONAL_PARAMETERS)
+            self.write_to_json(self.dir_name + assignment_dict['name'] + str(assignment_dict['id']) + '.json', updated_assignment_dict)
 
     def write_to_json(self, filename, dict_to_write):
         """
