@@ -13,6 +13,7 @@ from distributed import run_distributed_tests, \
 from file_utils import copy_files_to_submission_dir, \
     download_attachment, set_acls, unzip
 import convertMD2Html
+import pullCourse
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
@@ -329,6 +330,31 @@ def cmdargs():
     
     global canvasHandler
     canvasHandler = CanvasHandler()
+
+@cmdargs.command()
+@click.argument("course_name")
+@click.argument("assignment_name")
+@click.option("--mkdn/--no-mkdn", default=True, show_default=True, help="Export assignment as markdown or leave it as json")
+def pull_assignment(course_name, assignment_name, mkdn):
+    """
+        Pulls the assignment from the given course as a file
+    """
+    global path
+    global canvasHandler
+    try:
+        course = canvasHandler.get_course(course_name)
+    except Exception as e:
+        errorWithException(f'get_course api failed with following error : {e}')
+    else:
+        debug(f'Successfully retrieved the course: {course_name}')
+    courseParser = pullCourse.CourseParser(course, assignment_name, path + "/",
+        canvasHandler.parser['SERVER']['url'], canvasHandler.parser['SERVER']['token'])
+
+    if mkdn:
+        courseParser.export_to_MD()
+    else:
+        courseParser.export_to_json()
+    
 
 @cmdargs.command()
 @click.argument("course_name")
