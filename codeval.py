@@ -347,7 +347,7 @@ def pull_assignment(course_name, assignment_name, mkdn):
         errorWithException(f'get_course api failed with following error : {e}')
     else:
         debug(f'Successfully retrieved the course: {course_name}')
-    courseParser = pullCourse.CourseParser(course, assignment_name, path + "/",
+    courseParser = pullcourse.CourseParser(course, assignment_name, path + "/",
         canvasHandler.parser['SERVER']['url'], canvasHandler.parser['SERVER']['token'])
 
     if mkdn:
