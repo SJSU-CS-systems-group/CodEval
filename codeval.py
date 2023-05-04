@@ -13,7 +13,7 @@ from distributed import run_distributed_tests, \
 from file_utils import copy_files_to_submission_dir, \
     download_attachment, set_acls, unzip
 import convertMD2Html
-import pullCourse
+import pullcourse
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
