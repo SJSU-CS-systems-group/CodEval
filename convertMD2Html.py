@@ -40,10 +40,10 @@ def mdToHtml(file_name,file_dict):
                 assignment = text
             elif line.startswith('T ',0,2) or line.startswith('I ',0,2) or line.startswith('O ',0,2) or line.startswith('X ',0,2) or line.startswith('E ',0,2):
                 examples.append(line)
-            elif line.startswith('HT ',0,2):
-                samples = sampleTestCases(examples,numOfSampleTC)
-                assignment = re.sub('EXMPLS [0-9]+',samples,assignment)
-                break
+            #elif line.startswith('HT ',0,2):
+             #   samples = sampleTestCases(examples,numOfSampleTC)
+              #  assignment = re.sub('EXMPLS [0-9]+',samples,assignment)
+               # break
             else:
                 if 'URL_OF_HW ' in line:
                     start_index = line.index('URL_OF_HW') + len("URL_OF_HW \"")
@@ -59,6 +59,8 @@ def mdToHtml(file_name,file_dict):
                 if 'EXMPLS ' in line:
                     numOfSampleTC = int(line[7:])
                 text = text + line
+        samples = sampleTestCases(examples,numOfSampleTC)
+        assignment = re.sub('EXMPLS [0-9]+',samples,assignment)
         html=markdown.markdown(assignment, extensions=['markdown.extensions.tables'])
     
     if get_config().dry_run:
