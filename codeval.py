@@ -333,7 +333,7 @@ def cmdargs():
 @cmdargs.command()
 @click.argument("course_name")
 @click.argument("specname")
-@click.option("--dry-run/--no-dry-run", default=True, show_default=True,help="Check with Professor")
+@click.option("--dry-run/--no-dry-run", default=True, show_default=True,help="Create assignment but don't update Canvas.")
 @click.option("--verbose/--no-verbose", default=False, show_default=True,help="Verbose actions")
 @click.option("--group_name", default="Assignments", show_default=True,help="Group name in which assignments needs to be created.")
 def create_assignment(dry_run,verbose,course_name,group_name,specname):
@@ -411,7 +411,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
                 # Create the assignment with the assign_name
                 created_assignment=course.create_assignment({'name': assign_name,
                                       'assignment_group_id': grp_name.id,
-                                      'description':html.replace("HW_URL",disUrlHtml),
+                                      'description':html.replace("DISCSN_URL",disUrlHtml),
                                       'points_possible':100,
                                       'published':False,
                                       'submission_types':["online_upload"],

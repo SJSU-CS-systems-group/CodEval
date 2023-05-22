@@ -126,7 +126,7 @@ CRT_HW START <Assignment_name>
 
 CRT_HW END
 
-HW_URL
+DISCSN_URL
 
 EXMPLS <no_of_test_cases>
 
@@ -173,7 +173,7 @@ URL_OF_HW "file_name"
 	EXMPLS 3
 
 	## Discussion Topic
-	Here Is The Link To The Discussion Topic: HW_URL
+	Here Is The Link To The Discussion Topic: DISCSN_URL
 
 	### Rubric 
 	| Cases | Points|
