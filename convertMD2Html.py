@@ -40,7 +40,9 @@ def mdToHtml(file_name,file_dict):
                 assignment = text
             elif line.startswith('T ',0,2) or line.startswith('I ',0,2) or line.startswith('O ',0,2) or line.startswith('X ',0,2) or line.startswith('E ',0,2):
                 examples.append(line)
-            elif line.startswith('HT ',0,2):
+            elif line.startswith('HT ',0,3):
+                samples = sampleTestCases(examples,numOfSampleTC)
+                assignment = re.sub('EXMPLS [0-9]+',samples,assignment)
                 break
             else:
                 if 'URL_OF_HW ' in line:
