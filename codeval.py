@@ -24,7 +24,6 @@ canvasHandler = None
 html=""
 assign_name = ""
 file_dict = {}
-path = os.path.abspath('assignmentFiles')
 
 class CanvasHandler:
     def __init__(self):
@@ -299,51 +298,51 @@ class CanvasHandler:
             distributed_tests_data
         )
 
-def upload_assignment_files(path,course):
+def get_codeval_folder(course):
+    canvas_folders = course.get_folders()
+    for folder in canvas_folders:
+        if folder.name == "CodEval":
+            return folder
+    error("could not file CodeEval folder")
+    exit(2)
+
+
+def upload_assignment_files(folder, files):
     global file_dict
     global canvasHandler
-    if os.path.exists(path) and not os.path.isfile(path):
-        assign_directory = os.listdir(path)
-        if not assign_directory:
-            error("assignmentFiles directory is empty. Exiting!!")
+    for file in files:
+        if get_config().dry_run:
+            info(f'would not upload the files')
+            file_dict[file]=canvasHandler.parser['SERVER']['url']
         else:
-            for file in assign_directory:
-                canvas_folders=course.get_folders()
-                for fol in canvas_folders:
-                    if fol.name == "CodEval":
-                        if get_config().dry_run:
-                            info(f'would not upload the files')
-                            file_dict[file]=canvasHandler.parser['SERVER']['url']
-                        else:
-                            try:
-                                file_spec=fol.upload(path + '/' + file)
-                            except Exception as e:
-                                traceback.print_exc()
-                                errorWithException(f'Error uploading the file {file} in CodEval folder due to error : {e}. Exiting!!')
-                            else:
-                                file_dict[file_spec[1]['filename']]=file_spec[1]['url']
+            try:
+                file_spec=folder.upload(file)
+            except Exception as e:
+                traceback.print_exc()
+                errorWithException(f'Error uploading the file {file} in CodEval folder due to error : {e}. Exiting!!')
+            else:
+                file_dict[file_spec[1]['filename']]=file_spec[1]['url']
 
 
 @click.group()
 def cmdargs():
-    
     global canvasHandler
     canvasHandler = CanvasHandler()
 
 @cmdargs.command()
 @click.argument("course_name")
 @click.argument("specname")
+@click.argument("extra", nargs=-1)
 @click.option("--dry-run/--no-dry-run", default=True, show_default=True,help="Create assignment but don't update Canvas.")
 @click.option("--verbose/--no-verbose", default=False, show_default=True,help="Verbose actions")
 @click.option("--group_name", default="Assignments", show_default=True,help="Group name in which assignments needs to be created.")
-def create_assignment(dry_run,verbose,course_name,group_name,specname):
+def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
     """
         Create the assignment in the given course.
     """
     global html
     global file_dict
     global assign_name
-    global path
     global canvasHandler
     set_config(verbose,dry_run,False,False)
     try:
@@ -352,20 +351,21 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname):
         errorWithException(f'get_course api failed with following error : {e}')
     else:
         debug(f'Successfully retrieved the course: {course_name}')
-    upload_assignment_files(path,course)
+    folder = get_codeval_folder(course)
+    if extra:
+        upload_assignment_files(folder, extra)
     debug(f'Successfully uploaded the files in the CodEval folder')
-    spec_abs_path = path + '/' + specname
-    if not os.path.isfile(spec_abs_path):
-        errorWithException(f'The specification file:{spec_abs_path} does not exist in the CodEval folder. Exiting!!')
+    if not os.path.isfile(specname):
+        errorWithException(f'The specification file:{specname} does not exist in the CodEval folder. Exiting!!')
     try:
-        html = convertMD2Html.mdToHtml(spec_abs_path,file_dict)
+        (assign_name, html) = convertMD2Html.mdToHtml(specname,file_dict)
+        folder.upload(specname, name=f"{assign_name}.codeval")
     except Exception as e:
         traceback.print_exc()
         errorWithException(f'Error in convertMD2Html::mdToHtml function')
     else:
         debug(f'Successfully converted the assignment description to HTML')
-    assign_name = convertMD2Html.assignment_name
-    
+
     grp_name = None
     for assign_group in course.get_assignment_groups():
         if assign_group.name == group_name:

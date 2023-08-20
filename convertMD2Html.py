@@ -2,8 +2,6 @@ import markdown
 import re
 from commons import errorWithException,debug,error,info,warn,get_config
 
-assignment_name = ""
-
 def sampleTestCases(listOfTC,numOfTC):
     counter = 0
     samples = "<pre><code>"
@@ -13,13 +11,13 @@ def sampleTestCases(listOfTC,numOfTC):
             if counter > numOfTC :
                 break
             samples = samples + "\n"+"Command to RUN: " + line[2:]
-        elif line.startswith('I ',0,2):
+        elif line.startswith('I '):
             samples = samples + "<span style=\"color:green\">" + line[2:]+ "</span>"
-        elif line.startswith('O ',0,2):
+        elif line.startswith('O '):
             samples = samples + "<span style=\"color:blue\">" + line[2:] + "</span>"
-        elif line.startswith('X ',0,2):
+        elif line.startswith('X '):
             samples = samples + "Expected Exit Code: " + line[2:]
-        elif line.startswith('E ',0,2):
+        elif line.startswith('E '):
             samples = samples + "<span style=\"color:Tomato\">" + line[2:] + "</span>"
         else:
             continue
@@ -31,18 +29,15 @@ def mdToHtml(file_name,file_dict):
         text = ""
         examples=[]
         assignment = ""
-        global assignment_name
         numOfSampleTC = 1
         for line in f:
             if 'CRT_HW START' in line:
-                assignment_name=line[13:]
+                assignment_name=line[13:].strip()
             elif 'CRT_HW END' in line:
                 assignment = text
-            elif line.startswith('T ',0,2) or line.startswith('I ',0,2) or line.startswith('O ',0,2) or line.startswith('X ',0,2) or line.startswith('E ',0,2):
+            elif line.startswith(('T ', 'I ', 'O ', 'X ', 'E ')):
                 examples.append(line)
-            elif line.startswith('HT ',0,3):
-                samples = sampleTestCases(examples,numOfSampleTC)
-                assignment = re.sub('EXMPLS [0-9]+',samples,assignment)
+            elif line.startswith('HT '):
                 break
             else:
                 if 'URL_OF_HW ' in line:
@@ -67,6 +62,6 @@ def mdToHtml(file_name,file_dict):
         with open(file_name+'.html','w') as f:
             f.write(html)
             info(f'File created in the path : {file_name}')
-    return html
+    return (assignment_name, html)
 
     
