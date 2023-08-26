@@ -312,8 +312,8 @@ def upload_assignment_files(folder, files):
     global canvasHandler
     for file in files:
         if get_config().dry_run:
-            info(f'would not upload the files')
-            file_dict[file]=canvasHandler.parser['SERVER']['url']
+            info(f'would upload the {file}')
+            file_dict[file]=f"http://bogus/{file}"
         else:
             try:
                 file_spec=folder.upload(file)
@@ -358,8 +358,11 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
     if not os.path.isfile(specname):
         errorWithException(f'The specification file:{specname} does not exist in the CodEval folder. Exiting!!')
     try:
-        (assign_name, html) = convertMD2Html.mdToHtml(specname,file_dict)
-        folder.upload(specname, name=f"{assign_name}.codeval")
+        (assign_name, html) = convertMD2Html.mdToHtml(specname)
+        if dry_run:
+            info(f"would upload: {assign_name}.codeval")
+        else:
+            folder.upload(specname, name=f"{assign_name}.codeval")
     except Exception as e:
         traceback.print_exc()
         errorWithException(f'Error in convertMD2Html::mdToHtml function')
@@ -383,12 +386,14 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
                 if dry_run:
                     info(f"would update {assign_name}.")
                 else:
+                    for discussion in course.get_discussion_topics():
+                        if discussion.title == assign_name:
+                            disUrlHtml = f'<a href={discussion.html_url}>{discussion.title}</a>'
                     try:
                         assignment.edit(assignment={'name': assign_name,
                                                 'assignment_group_id': grp_name.id,
-                                                'description': html,
+                                                'description': html.replace("DISCUSSION_LINK", disUrlHtml),
                                                 'points_possible': 100,
-                                                'published': False,                                                                                                     'submission_types':["online_upload"],
                                                 'allowed_extensions':["zip"],
                                                 })
                     except Exception as e:
@@ -411,7 +416,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
                 # Create the assignment with the assign_name
                 created_assignment=course.create_assignment({'name': assign_name,
                                       'assignment_group_id': grp_name.id,
-                                      'description':html.replace("DISCSN_URL",disUrlHtml),
+                                      'description':html.replace("DISCUSSION_LINK",disUrlHtml),
                                       'points_possible':100,
                                       'published':False,
                                       'submission_types':["online_upload"],

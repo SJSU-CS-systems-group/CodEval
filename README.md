@@ -141,8 +141,8 @@ URL_OF_HW "file_name"
 4) After this tag, the content for grading the submission begins.
 
 	Addition of the Discussion Topic in the assignment description.
-	1) Insert the tag HW_URL wherever you want the corresponding discussion topic's link to appear.
-		```For ex: To access the discussion topic for this assignment you go here HW_URL```
+	1) Insert the tag DISCUSSION_LINK wherever you want the corresponding discussion topic's link to appear.
+		```For ex: To access the discussion topic for this assignment you go here DISCUSSION_LINK```
 
 	#### Addition of sample examples in the assignment description.
 	1) Insert the tag EXMPLS followed by single space followed by the value. 

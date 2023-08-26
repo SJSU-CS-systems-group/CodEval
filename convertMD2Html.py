@@ -24,7 +24,7 @@ def sampleTestCases(listOfTC,numOfTC):
     samples = samples + "</code></pre>"
     return samples
 	
-def mdToHtml(file_name,file_dict):
+def mdToHtml(file_name):
     with open(file_name,'r') as f:
         text = ""
         examples=[]
@@ -40,17 +40,6 @@ def mdToHtml(file_name,file_dict):
             elif line.startswith('HT '):
                 break
             else:
-                if 'URL_OF_HW ' in line:
-                    start_index = line.index('URL_OF_HW') + len("URL_OF_HW \"")
-                    end_index=line.index('")')
-                    hw_name=line[start_index:end_index]
-                    file_url = "URL_OF_HW " + '"' + hw_name +  '"'
-                    try:
-                        check_file_in_dict = file_dict[hw_name]
-                    except:
-                        errorWithException (f'{hw_name} is not present in the CodeEval folder. Make sure that the file in the CodEval folder and the value of corresponding URL_OF_HW tag is same')
-                    else:
-                        line=line.replace(file_url,file_dict[hw_name])
                 if 'EXMPLS ' in line:
                     numOfSampleTC = int(line[7:])
                 text = text + line
@@ -59,9 +48,10 @@ def mdToHtml(file_name,file_dict):
         html=markdown.markdown(assignment, extensions=['markdown.extensions.tables'])
     
     if get_config().dry_run:
-        with open(file_name+'.html','w') as f:
+        html_file_name = file_name +'.html'
+        with open(html_file_name,'w') as f:
             f.write(html)
-            info(f'File created in the path : {file_name}')
+            info(f'HTML preview created in the path : {html_file_name}')
     return (assignment_name, html)
 
     
