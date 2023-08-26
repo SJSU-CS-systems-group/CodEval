@@ -108,7 +108,7 @@ rm -rf fileinput expectedoutput expectederror
 touch fileinput expectedoutput expectederror
 
 
-while read -r fullline; do
+while IFS="" read -r fullline; do
 line="${fullline%% *}"
 args="${fullline#* }"
 if [ "$line" = "SS" ]
