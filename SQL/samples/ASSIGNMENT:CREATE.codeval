@@ -1,0 +1,18 @@
+RUN evaluate.sh
+--SQL--
+Z insert.zip
+TSQL 1.sql
+INSERT insert.sql
+TSQL 2.sql
+O count(*)
+O 3
+TSQL select count(*) from Person;
+O count(*)
+O 3
+SCHEMACHECK PRI Person P_id
+SCHEMACHECK PRI Location L_id
+CONDITIONPRESENT count 2.sql
+CONDITIONPRESENT Person 2.sql
+CONDITIONPRESENT Location 2.sql
+
+

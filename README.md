@@ -110,7 +110,44 @@ Refer to a sample spec file [here](samples/assignment-name.codeval)
 - Distributed tests need a running mongodb service to persists the progress of students running heterogenous tests
 
 
-## 3. Create an assignment on Canvas
+## 3. Test SQL Assignments
+### codeval.ini contents
+```
+[SERVER]
+url=<canvas API>
+token=<canvas token>
+[RUN]
+precommand=
+command=
+dist_command=
+host_ip=
+sql_command=
+```
+
+Refer to a sample codeval.ini file [here](SQL/samples/codeval.ini)
+
+### Command to run
+is the same as the [command in #1](#command-to-run):  
+`python3 codeval.py grade-submissions <a unique part of course name> [FLAGS]`
+
+### SQL Specification Tags  
+
+| Tag              | Meaning                 | Function                                                                                     |
+|------------------|-------------------------|----------------------------------------------------------------------------------------------|
+| --SQL--          | SQL Tests Begin         | Marks the beginning of SQL tests. Is used to determine if the spec file has SQL based tests  |
+| INSERT           | Insert rows in DB       | Insert rows in the SQL database using files/ individual insert queries.                      |
+| CONDITIONPRESENT | Check condition in file | Validate submission files for a required condition to be present in submissions.             |
+| SCHEMACHECK      | External Command        | Validate submission files for database related checks like constraints.                      |
+| TSQL             | SQL Test                | Marks the SQL test, take input as a file or individual query and run it on submission files. |
+
+Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
+
+### Notes
+- The config file `codeval.ini` needs to contain the extra entries only if the tag `--SQL--` exists in the specification file
+- SQL tests need a separate container image to run SQL tests in MYSQL.
+
+
+## 4. Create an assignment on Canvas
 
 ### Command to create the assignment:
 **Syntax:** `python3 codeval.py create-assignment <course_name> <specification_file> [ --dry-run/--no-dry-run ] [ --verbose/--no-verbose ] [ --group_name ]`  

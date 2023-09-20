@@ -14,7 +14,7 @@ declare -a cmps
 testcase_total=0
 while read -r line args
 do
-    if [ "$line" = "T" -o "$line" = "HT" -o "$line" = "TCMD" ]
+    if [ "$line" = "T" -o "$line" = "HT" -o "$line" = "TCMD" -o "$line" = "TSQL" -o "$line" = "SCHEMACHECK" -o "$line" = "CONDITIONPRESENT" ]
     then
         testcase_total=$((testcase_total+1))
     fi
@@ -35,7 +35,19 @@ check_test () {
 
     echo -ne "\nTest Case $testcase_count of $testcase_total: "
     passed=yes
-    eval timeout $timeout_val $test_args < fileinput > youroutput 2> yourerror
+#   SQL test section if begins
+    if [ "$testcase_line" = "TSQL" ]
+        then
+          if [[ "$test_args" == *".sql" ]]; then
+            query="mysql < "
+          else
+            query="mysql -e "
+            test_args="\"$test_args\""
+          fi
+          eval timeout $timeout_val $query$test_args > youroutput 2> yourerror
+    else
+      eval timeout $timeout_val $test_args < fileinput > youroutput 2> yourerror
+    fi
     retval=$?
     if [ "$retval" -eq 124 ]
     then
@@ -123,7 +135,7 @@ if [ "$line" = "SS" ]
    echo "Server pid: $server_pid. Sleeping for $timeout_sec seconds."
    eval sleep "$timeout_sec"
    eval "( sleep $kill_timeout_sec; echo Killing $server_pid; kill -9 $server_pid ) &"
-   fi
+fi
 if [ "$line" = "C" ]
    then
 
@@ -140,7 +152,7 @@ if [ "$line" = "C" ]
        tail -10 compilelog
    exit 1
    fi
-elif [ "$line" = "T" ] || [ "$line" = "HT" ]
+elif [ "$line" = "T" ] || [ "$line" = "HT" ] || [ "$line" = "TSQL" ]
     then
     check_test
     unset HINT
@@ -211,6 +223,91 @@ elif [ "$line" = "TO" ]
 elif [ "$line" = "--DT--" ]
     then
     break
+elif [ "$line" = "--SQL--" ]
+    then
+      # Define the MySQL configuration file path
+    config_file=~/.my.cnf
+    # MySQL connection parameters
+    db_user="dummy"
+    db_password="dummy"
+    db_database="dummy"
+
+    # Check if the configuration file already exists
+    if [ -f "$config_file" ]; then
+      echo "The MySQL configuration file ($config_file) already exists."
+      continue
+    fi
+
+    # Create the MySQL configuration file and add values
+    echo "[client]" > "$config_file"
+    echo "user=$db_user" >> "$config_file"
+    echo "password=$db_password" >> "$config_file"
+    echo "database=$db_database" >> "$config_file"
+
+    # Set appropriate permissions on the configuration file
+    chmod 600 "$config_file"
+
+    echo "MySQL configuration file ($config_file) created successfully."
+    continue
+elif [ "$line" = "INSERT" ]
+    then
+    check_test
+    if [[ "$args" == *".sql" ]]; then
+        query="mysql < "
+    else
+        query="mysql -e "
+        args="\"$args\""
+    fi
+    outfile="out.log"
+    errfile="err.log"
+    eval $query$args > $outfile 2> $errfile
+    if [ -s "$errfile" ]; then
+      echo "Error inserting records through ($args)"
+      cat $errfile
+      exit 1
+    fi
+    rm "$outfile"
+    rm "$errfile"
+elif [ "$line" = "SCHEMACHECK" ]
+    then
+# SCHEMACHECK CONSTRAINT_NAME TABLE_NAME EXPECTED_VALUE
+# Primary = PRI, Unique = UNI
+    check_test
+    testcase_count=$((testcase_count + 1))
+    echo -ne "\nTest Case $testcase_count of $testcase_total: "
+    read constraint_name table_name expected_value <<< "$args"
+    query="SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'dummy' AND TABLE_NAME = '$table_name' AND COLUMN_KEY = '$constraint_name';"
+    prefix="mysql -e "
+    outfile="out.log"
+    errfile="err.log"
+    eval "$prefix \"$query\"" > $outfile 2> $errfile
+    if [ -s "$errfile" ]; then
+      echo "FAILED"
+      cat $errfile
+      exit 1
+    elif grep -iq "$expected_value" "$outfile"; then
+        echo "Passed"
+    else
+      echo "FAILED"
+      cat $outfile
+      exit 1
+    fi
+    rm "$outfile"
+    rm "$errfile"
+elif [ "$line" = "CONDITIONPRESENT" ]
+# CONDITIONPRESENT CONDITION FILENAME
+    then
+    check_test
+    testcase_count=$((testcase_count + 1))
+    echo -ne "\nTest Case $testcase_count of $testcase_total: "
+    read variable filename <<< "$args"
+    grep -i "$variable" $filename > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      echo "Passed"
+    else
+      echo "FAILED"
+      exit 1
+    fi
 fi
 done < testcases.txt
 
