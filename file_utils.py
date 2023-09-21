@@ -58,3 +58,4 @@ def copy_files_to_submission_dir(temp_fixed, temp_dir):
     shutil.copy("runvalgrind.sh", f"{temp_dir}/runvalgrind.sh")
     shutil.copy("parsediff", f"{temp_dir}/parsediff")
     shutil.copy("parsevalgrind", f"{temp_dir}/parsevalgrind")
+    shutil.copy("checksql.sh", f"{temp_dir}/checksql.sh")

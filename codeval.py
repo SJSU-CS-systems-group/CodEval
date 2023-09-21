@@ -20,6 +20,7 @@ CODEVAL_SUFFIX = ".codeval"
 copy_tmpdir = False
 compile_timeout = 20
 has_distributed_tests = False
+has_sql_tests = False
 canvasHandler = None
 html=""
 assign_name = ""
@@ -33,9 +34,9 @@ class CanvasHandler:
         self.parser.config_file = config_file
 
         for key in ['url', 'token']:
-            self._check_config('SERVER', key) 
+            self._check_config('SERVER', key)
         for key in ['command']:
-            self._check_config('RUN', key) 
+            self._check_config('RUN', key)
         try:
             self.canvas = Canvas(self.parser['SERVER']['url'],
                                  self.parser['SERVER']['token'])
@@ -109,6 +110,8 @@ class CanvasHandler:
             error(f"Cannot process assignment - {assignment_name} as {test_file} doesn't exist.")
             raise FileNotFoundError(test_file)
         debug(f"testcase file downloaded at {testcase_path}")
+        global has_sql_tests
+        has_sql_tests = False
         with open(testcase_path, "r") as f:
             self.executable = None
             lines = f.readlines()
@@ -137,7 +140,8 @@ class CanvasHandler:
                     global has_distributed_tests
                     has_distributed_tests = True
                     self._check_distributed_config()
-
+                elif line_args[0] == "--SQL--":
+                    has_sql_tests = True
 
     def should_check_submission(self, submission):
         '''check whether a submission needs to be evaluated'''
@@ -238,7 +242,10 @@ class CanvasHandler:
 
     def evaluate(self, temp_fixed, tmpdir, distributed_tests_data):
         ''' run commands specified in codeval.ini'''
-        command = self.parser["RUN"]["command"]
+        if has_sql_tests:
+            command = self.parser["RUN"]["sql_command"]
+        else:
+            command = self.parser["RUN"]["command"]
         if not command:
             errorWithException(f"commands section under [RUN] in {self.parser.config_file} is empty")
 
@@ -326,6 +333,7 @@ def upload_assignment_files(folder, files):
 
 @click.group()
 def cmdargs():
+
     global canvasHandler
     canvasHandler = CanvasHandler()
 
@@ -368,6 +376,7 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
         errorWithException(f'Error in convertMD2Html::mdToHtml function')
     else:
         debug(f'Successfully converted the assignment description to HTML')
+    assign_name = convertMD2Html.assignment_name
 
     grp_name = None
     for assign_group in course.get_assignment_groups():
