@@ -1,6 +1,6 @@
 #!/bin/bash
 
-valgrind --xml=yes --xml-file=val.err --leak-check=full --error-exitcode=99 ${@}
+valgrind --xml=yes --xml-file=val.err --leak-check=full --error-exitcode=99 "${@}"
 rc=$?
 if [ $rc -eq 99 ]
 then
