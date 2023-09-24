@@ -535,3 +535,7 @@ def check_test():
 
         # Exit program after failed test case
         sys.exit(2)
+
+
+if __name__ == '__main__':
+    evaluate()
