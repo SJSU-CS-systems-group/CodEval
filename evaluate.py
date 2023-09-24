@@ -1,18 +1,27 @@
-import click
+import os
 import re
 import subprocess
+import sys
 import threading
 import time
+import click
+
 
 ###########################################################
 # Globals
 ###########################################################
 
 
+test_args = ""
 cmps = []
-timeout_val = 20
-expected_exit_code = 0
+timeout_val = 10
+expected_exit_code = -1
+test_case_count = 0
 test_case_hint = ""
+test_case_total = 0
+num_passed = 0
+num_failed = 0
+is_hidden_testcase = False
 
 ###########################################################
 # Specification Tags to Function Mapping
@@ -28,7 +37,29 @@ def compile_code(compile_command):
     Returns:
         None
     """
-    pass
+    if test_case_count != 0:
+        check_test()
+
+    # Run compile command
+    with open('compilelog', 'w') as outfile:
+        compile_popen = subprocess.Popen(compile_command, stdout=outfile, stderr=outfile, text=True)
+
+    compile_popen.communicate(compile_popen)
+    if compile_popen.returncode:
+        with open('compilelog', 'r') as infile:
+            compile_log = infile.readlines
+
+        # Print head of compile log
+        for line in compile_log[:10]:
+            print(line)
+
+        print('...')
+
+        # Print tail of compile log
+        for line in compile_log[-10:]:
+            print(line)
+
+        sys.exit(1)
 
 
 def compile_timeout(timeout_sec):
@@ -78,7 +109,18 @@ def check_function(function_name, *files):
     Returns:
         None
     """
-    pass
+    check_test()
+
+    # Surpress output
+    function_popen = subprocess.Popen([f'grep "[^[:alpha:]]{function_name}[[:space:]]*("',
+                                       ' '.join(files)],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    function_popen.communicate()
+    if function_popen.returncode:
+        print(f'not using {function_name} FAILED')
+    else:
+        print(f'used{function_name} PASSED')
 
 
 def check_not_function(function_name, *files):
@@ -92,7 +134,18 @@ def check_not_function(function_name, *files):
     Returns:
         None
     """
-    pass
+    check_test()
+
+    # Surpress output
+    function_popen = subprocess.Popen([f'grep "[^[:alpha:]]{function_name}[[:space:]]*("',
+                                       ' '.join(files)],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    function_popen.communicate()
+    if function_popen.returncode:
+        print(f'used{function_name} PASSED')
+    else:
+        print(f'not using {function_name} FAILED')
 
 
 def run_command(command):
@@ -104,7 +157,11 @@ def run_command(command):
     Returns:
         None
     """
-    pass
+    check_test()
+
+    # Execute without surpressing output
+    command_popen = subprocess.Popen(command)
+    command_popen.communicate()
 
 
 def run_command_noerror(command):
@@ -116,7 +173,30 @@ def run_command_noerror(command):
     Returns:
         None
     """
-    pass
+    check_test()
+
+    # Run as test case
+    global test_case_count
+    test_case_count += 1
+    print(f'Test case count {test_case_count} of {test_case_total}')
+
+    # Execute without surpressing output
+    command_popen = subprocess.Popen(command)
+    command_popen.communicate()
+
+    if command_popen.returncode:
+        print('FAILED')
+        for file in os.listdir('evaluationLogs'):
+            with open(file, 'r') as infile:
+                file_lines = infile.readlines()
+
+            # Print entire file
+            print('\n'.join(file_lines))
+
+        # Exit entire program with error
+        sys.exit(1)
+    else:
+        print('PASSED')
 
 
 def compare(file1, file2):
@@ -142,7 +222,51 @@ def test_case(test_case_command):
     Returns:
         None
     """
-    pass
+    check_test()
+
+    # Clear hint
+    global hint
+    hint = ""
+
+    # Set new test case command
+    global test_args
+    test_args = test_case_command
+
+    # Increment test cases
+    global test_case_count
+    test_case_count += 1
+
+    # Set test case hidden
+    global test_case_hidden
+    test_case_hidden = False
+
+
+def test_case_hidden(test_case_command):
+    """Will be followed by the command to run to test the submission. Test case is hidden.
+
+    Arguments:
+        test_case_command: the command to run the submission
+
+    Returns:
+        None
+    """
+    check_test()
+
+    # Clear hint
+    global hint
+    hint = ""
+
+    # Set new test case command
+    global test_args
+    test_args = test_case_command
+
+    # Increment test cases
+    global test_case_count
+    test_case_count += 1
+
+    # Set hidden test case
+    global test_case_hidden
+    test_case_hidden = True
 
 
 def supply_input(*inputs):
@@ -305,6 +429,7 @@ tag_func_map = {
     'TCMD': run_command_noerror,
     'CMP': compare,
     'T': test_case,
+    'HT': test_case_hidden,
     'I': supply_input,
     'IF': supply_input_file,
     'O': check_output,
@@ -320,6 +445,14 @@ tag_func_map = {
 @click.command()
 def evaluate():
     start_time_seconds = time.time()
+
+    # Count test case total
+    global test_case_total
+    with open('testcases.txt', 'r') as infile:
+        testcases = infile.readlines()
+        for testcase in testcases:
+            if testcase.split(" ")[0] == "T" or testcase.split(" ")[0] == "HT":
+                test_case_total += 1
 
     # Read testcases
     with open('testcases.txt', 'r') as infile:
@@ -352,3 +485,53 @@ def parse_tags(tags: list[str]):
             print(f'Invalid tag {tag} for parsing.')
         except (TypeError, ValueError):
             print(f'Invalid arguments for tag {tag}')
+
+
+def check_test():
+    if test_args == "":
+        return
+
+    print(f'Test case {test_case_count} of {test_case_total}')
+    passed = True
+
+    with open('fileinput', 'r') as fileinput, \
+         open('youroutput', 'w') as youroutput, \
+         open('yourerror', 'w') as yourerror:
+        test_exec = subprocess.Popen(test_args, stdin=fileinput, stdout=youroutput, stderr=yourerror)
+
+    try:
+        test_exec.communicate(timeout=timeout_val)
+    except TimeoutError:
+        print(f'Took more than {timeout_val} seconds to run. FAIL')
+        passed = False
+
+    # Pass fail handling
+    if passed:
+        global num_passed
+        num_passed += 1
+        print("Passed")
+    else:
+        global num_failed
+        num_failed += 1
+        print("FAILED")
+
+        # Hidden test case handling
+        if test_case_hidden:
+            print('    Test Case is Hidden')
+            if hint:
+                print(f'HINT: {hint}')
+        else:
+            if hint:
+                print(f'HINT: {hint}')
+
+            # Cleanup
+            print(f'    Command ran: {test_args}')
+            for file in os.listdir('evaluationlogs'):
+                with open(file, 'r') as infile:
+                    file_lines = infile.readlines()
+
+                # Print entire file
+                print('\n'.join(file_lines))
+
+        # Exit program after failed test case
+        sys.exit(2)
