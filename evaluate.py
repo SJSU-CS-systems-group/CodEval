@@ -487,6 +487,37 @@ def parse_tags(tags: list[str]):
             print(f'Invalid arguments for tag {tag}')
 
 
+def parse_diff(diff_lines: list[str]):
+    """Given output from diff command, parse lines into console
+
+    Arguments:
+        parse_diff (list[str]): list of lines as output from diff command
+
+    Returns:
+        None
+    """
+    # Directly write into logOfDiff rather than use redirection
+    with open('evaluationLogs/logOfDiff', 'w') as outfile:
+        for line in diff_lines:
+            first_word = line.split(' ')[:2]
+            first_character = first_word[0]
+
+            if first_character != '@':
+                # Lines present in your output but not present in expected
+                if first_character == '-' and first_word[:3] == '---':
+                    student_output_file = line[3:-37]
+                    outfile.write(f'Your output file: {student_output_file}')
+
+                # Lines present in expected output but not in yours
+                elif first_character == '+' and first_word[:3] == '+++':
+                    expected_output_file = line[3:-37]
+                    outfile.write(f'Expected output file: {expected_output_file}')
+
+                # Catch rest
+                else:
+                    outfile.write(line)
+
+
 def check_test():
     if test_args == "":
         return
@@ -499,11 +530,45 @@ def check_test():
          open('yourerror', 'w') as yourerror:
         test_exec = subprocess.Popen(test_args, stdin=fileinput, stdout=youroutput, stderr=yourerror)
 
+    # Timeout handling
     try:
         test_exec.communicate(timeout=timeout_val)
     except TimeoutError:
         print(f'Took more than {timeout_val} seconds to run. FAIL')
         passed = False
+
+    # Difflog handling
+    with open('difflog', 'w') as outfile:
+        diff_popen = subprocess.Popen('diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22',
+                                      stdout=outfile, stderr=outfile, text=True)
+        diff_popen.communicate()
+
+    # Append to difflog second time around
+    with open('difflog', 'a') as outfile:
+        diff_popen = subprocess.Popen('diff -U1 -a ./yourerror ./expectederror | cat -te | head -22',
+                                      stdout=outfile, stderr=outfile, text=True)
+        diff_popen.communicate()
+
+    # Now read all the lines to accumulate both diffs
+    with open('difflog', 'r') as infile:
+        diff_lines = infile.readlines()
+
+    if len(diff_lines):
+        passed = False
+        parse_diff(diff_lines)
+
+    # Exit code handling
+    if expected_exit_code != -1 and test_exec.returncode != expected_exit_code:
+        passed = False
+        print(f'    Exit Code failure: expected {expected_exit_code} got {test_exec.returncode}')
+
+    # Compare files handling, do not surpress output
+    for files in cmps:
+        cmd_popen = subprocess.Popen(['cmp', files])
+        cmd_popen.communicate()
+        if cmd_popen.returncode:
+            passed = False
+            break
 
     # Pass fail handling
     if passed:
