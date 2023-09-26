@@ -1,3 +1,5 @@
+#! /usr/bin/python3
+
 import os
 import re
 import subprocess
@@ -60,42 +62,6 @@ def compile_code(compile_command):
             print(line)
 
         sys.exit(1)
-
-
-def compile_timeout(timeout_sec):
-    """Timeout in seconds for the compile command to run
-
-    Arguments:
-        timeout: the timeout for the compile command
-
-    Returns:
-        None
-    """
-    raise NotImplementedError()
-
-
-def run_script(script_file):
-    """Specifies the script to use to evaluate the specification file. Defaults to evaluate.sh.
-
-    Arguments:
-        script_file: the script file to run to evaluate the specification file
-
-    Returns:
-        None
-    """
-    raise NotImplementedError()
-
-
-def download_zip(*zip_files):
-    """Will be followed by zip files to download from Canvas to use when running the test cases.
-
-    Arguments:
-        *zip_files: zip files to be downloaded from Canvas
-
-    Returns:
-        None
-    """
-    raise NotImplementedError()
 
 
 def check_function(function_name, *files):
@@ -420,9 +386,6 @@ this in the function itself.
 """
 tag_func_map = {
     'C': compile_code,
-    'CTO': compile_timeout,
-    'RUN': run_script,
-    'Z': download_zip,
     'CF': check_function,
     'NCF': check_not_function,
     'CMD': run_command,
