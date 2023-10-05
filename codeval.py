@@ -376,7 +376,6 @@ def create_assignment(dry_run,verbose,course_name,group_name,specname, extra):
         errorWithException(f'Error in convertMD2Html::mdToHtml function')
     else:
         debug(f'Successfully converted the assignment description to HTML')
-    assign_name = convertMD2Html.assignment_name
 
     grp_name = None
     for assign_group in course.get_assignment_groups():
