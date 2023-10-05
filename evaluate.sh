@@ -56,8 +56,8 @@ check_test () {
     fi
     rm -f difflog
     touch difflog
-    diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22 > difflog
-    diff -U1 -a ./yourerror ./expectederror | cat -te | head -22 >> difflog
+    diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -32 > difflog
+    diff -U1 -a ./yourerror ./expectederror | cat -te | head -32 >> difflog
     if [ -s difflog ]
     then
         passed=no

@@ -12,11 +12,12 @@ do
       if [ "$first_character_" = "-"  ] && [ "${first_word:0:3}" = "---" ]
       then
           student_output_file=${line:3:-37}
-          echo "Your output file: $student_output_file"
+          # echo "Your output file: $student_output_file"
       elif [ "$first_character_" = "+"  ] && [ "${first_word:0:3}" = "+++" ]
       then
           expected_output_file=${line:3:-37}
-          echo "Expected output file: $expected_output_file" 
+          # echo "Expected output file: $expected_output_file" 
+          echo "$(basename ${expected_output_file%^}):"
       else
           echo $line 
       fi 
