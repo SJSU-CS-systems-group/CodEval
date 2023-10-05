@@ -23,7 +23,7 @@ while read -r line args
     then
         if [ "${line:0:8}" = "</frame>" ]
         then
-            statement="In function: $functionName at line number: $lineNumber"
+            statement="    $functionName at line number $lineNumber in $fileName"
              frames[frameCounter]=$statement
              frameCounter=$((frameCounter+1))
          fi 
@@ -51,19 +51,23 @@ while read -r line args
         if [ "${line:0:8}" = "</error>" ]
         then
             print_error=0
-            echo "In file: $fileName . "
+            echo "In file: $fileName . With call stack:"
             for frameItr in "${frames[@]}"
             do
               echo "$frameItr"
             done 
-           # Deleting the frame eleemnts
-             for delFrameItr in ${!frames[@]}
-             do
+            # Deleting the frame eleemnts
+            for delFrameItr in ${!frames[@]}
+            do
                unset frames[delFrameItr]
-             done 
-             frameCounter=0 
-             echo "Type of Error: $errorKind"
-            echo -e "Error: $errorDescription\\n" 
+            done 
+            frameCounter=0 
+            echo "Type of Error: $errorKind"
+            if [ -n "$errorDescription" ]
+            then
+                echo "Error: $errorDescription" 
+            fi
+            echo
          fi 
      fi
 done < $1 
