@@ -6,7 +6,6 @@ import subprocess
 import sys
 import threading
 import time
-import click
 
 
 ###########################################################
@@ -405,7 +404,6 @@ tag_func_map = {
 }
 
 
-@click.command()
 def evaluate():
     start_time_seconds = time.time()
 
