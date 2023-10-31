@@ -55,6 +55,7 @@ def set_acls(temp_dir):
 def copy_files_to_submission_dir(temp_fixed, temp_dir):
     copy_tree(temp_fixed, temp_dir)
     shutil.copy("evaluate.sh", f"{temp_dir}/evaluate.sh")
+    shutil.copy("evaluate.py", f"{temp_dir}/evaluate.py")
     shutil.copy("runvalgrind.sh", f"{temp_dir}/runvalgrind.sh")
     shutil.copy("parsediff", f"{temp_dir}/parsediff")
     shutil.copy("parsevalgrind", f"{temp_dir}/parsevalgrind")
