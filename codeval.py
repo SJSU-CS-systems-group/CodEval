@@ -128,7 +128,8 @@ class CanvasHandler:
                     compile_timeout = int(line_args[1])
                 elif line_args[0] == "USING":
                     file_name = line_args[1]
-                    if file_name not in os.listdir(dest_dir):
+                    # if file_name not in os.listdir(dest_dir):
+                    if False:
                         errorWithException(f"{file_name} not found in the {dest_dir} directory")
                     else:
                         self.executable = file_name
