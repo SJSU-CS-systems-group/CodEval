@@ -29,7 +29,7 @@ is_hidden_testcase = False
 ###########################################################
 
 
-def compile_code(compile_command):
+def compile_code(*compile_command):
     """Specifies the command to compile the submission code
 
     Arguments:
@@ -43,7 +43,10 @@ def compile_code(compile_command):
 
     # Run compile command
     with open('compilelog', 'w') as outfile:
-        compile_popen = subprocess.Popen(compile_command, stdout=outfile, stderr=outfile, text=True)
+        # Join compile command tokens
+        compile_command_string = ' '.join(compile_command)
+
+        compile_popen = subprocess.Popen(compile_command_string, stdout=outfile, stderr=outfile, text=True)
 
     compile_popen.communicate(compile_popen)
     if compile_popen.returncode:
@@ -113,7 +116,7 @@ def check_not_function(function_name, *files):
         print(f'not using {function_name} FAILED')
 
 
-def run_command(command):
+def run_command(*command):
     """Will be followed by a command to run.
 
     Arguments:
@@ -124,12 +127,15 @@ def run_command(command):
     """
     check_test()
 
+    # Convert tokenized command to string
+    command_string = ' '.join(command)
+
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    command_popen = subprocess.Popen(command_string)
     command_popen.communicate()
 
 
-def run_command_noerror(command):
+def run_command_noerror(*command):
     """Will be followed by a command to run, evaluation fails if the command exits with an error.
 
     Arguments:
@@ -145,8 +151,11 @@ def run_command_noerror(command):
     test_case_count += 1
     print(f'Test case count {test_case_count} of {test_case_total}')
 
+    # Convert tokenized command to string
+    command_string = ' '.join(command)
+
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    command_popen = subprocess.Popen(command_string)
     command_popen.communicate()
 
     if command_popen.returncode:
@@ -178,7 +187,7 @@ def compare(file1, file2):
     cmps.append(file2)
 
 
-def test_case(test_case_command):
+def test_case(*test_case_command):
     """Will be followed by the command to run to test the submission.
 
     Arguments:
@@ -195,7 +204,7 @@ def test_case(test_case_command):
 
     # Set new test case command
     global test_args
-    test_args = test_case_command
+    test_args = ' '.join(test_case_command)
 
     # Increment test cases
     global test_case_count
@@ -206,7 +215,7 @@ def test_case(test_case_command):
     test_case_hidden = False
 
 
-def test_case_hidden(test_case_command):
+def test_case_hidden(*test_case_command):
     """Will be followed by the command to run to test the submission. Test case is hidden.
 
     Arguments:
@@ -223,7 +232,7 @@ def test_case_hidden(test_case_command):
 
     # Set new test case command
     global test_args
-    test_args = test_case_command
+    test_args = ' '.join(test_case_command)
 
     # Increment test cases
     global test_case_count
@@ -344,7 +353,7 @@ def exit_code(test_case_exit_code):
     expected_exit_code = float(test_case_exit_code)
 
 
-def start_server(timeout_sec, kill_timeout_sec, server_cmd):
+def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
     """Command containing timeout (wait until server starts), kill timeout (wait to kill the server),
     and the command to start a server
 
@@ -356,12 +365,16 @@ def start_server(timeout_sec, kill_timeout_sec, server_cmd):
     Returns:
         None
     """
-    print(f'Starting server with command: {server_cmd} and sleeping for: {timeout_sec}. Will kill server '
+
+    # Convert tokenized server command to string
+    server_cmd_string = ' '.join(server_cmd)
+
+    print(f'Starting server with command: {server_cmd_string} and sleeping for: {timeout_sec}. Will kill server '
           f'after {kill_timeout_sec} seconds.')
 
     # Send output to compile log in background
     with open('compilelog', 'w') as outfile:
-        server_popen = subprocess.Popen(server_cmd, stdout=outfile, stderr=outfile, text=True)
+        server_popen = subprocess.Popen(server_cmd_string, stdout=outfile, stderr=outfile, text=True)
 
     print(f'Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.')
     # Block for timeout_sec so that server can start
