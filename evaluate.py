@@ -43,10 +43,7 @@ def compile_code(*compile_command):
 
     # Run compile command
     with open('compilelog', 'w') as outfile:
-        # Join compile command tokens
-        compile_command_string = ' '.join(compile_command)
-
-        compile_popen = subprocess.Popen(compile_command_string, stdout=outfile, stderr=outfile, text=True)
+        compile_popen = subprocess.Popen(compile_command, stdout=outfile, stderr=outfile, text=True)
 
     compile_popen.communicate(compile_popen)
     if compile_popen.returncode:
@@ -127,11 +124,8 @@ def run_command(*command):
     """
     check_test()
 
-    # Convert tokenized command to string
-    command_string = ' '.join(command)
-
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command_string)
+    command_popen = subprocess.Popen(command)
     command_popen.communicate()
 
 
@@ -151,11 +145,8 @@ def run_command_noerror(*command):
     test_case_count += 1
     print(f'Test case count {test_case_count} of {test_case_total}')
 
-    # Convert tokenized command to string
-    command_string = ' '.join(command)
-
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command_string)
+    command_popen = subprocess.Popen(command)
     command_popen.communicate()
 
     if command_popen.returncode:
@@ -204,7 +195,7 @@ def test_case(*test_case_command):
 
     # Set new test case command
     global test_args
-    test_args = ' '.join(test_case_command)
+    test_args = test_case_command
 
     # Increment test cases
     global test_case_count
@@ -232,7 +223,7 @@ def test_case_hidden(*test_case_command):
 
     # Set new test case command
     global test_args
-    test_args = ' '.join(test_case_command)
+    test_args = test_case_command
 
     # Increment test cases
     global test_case_count
@@ -366,15 +357,12 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
         None
     """
 
-    # Convert tokenized server command to string
-    server_cmd_string = ' '.join(server_cmd)
-
-    print(f'Starting server with command: {server_cmd_string} and sleeping for: {timeout_sec}. Will kill server '
+    print(f'Starting server with command: {' '.join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
           f'after {kill_timeout_sec} seconds.')
 
     # Send output to compile log in background
     with open('compilelog', 'w') as outfile:
-        server_popen = subprocess.Popen(server_cmd_string, stdout=outfile, stderr=outfile, text=True)
+        server_popen = subprocess.Popen(server_cmd, stdout=outfile, stderr=outfile, text=True)
 
     print(f'Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.')
     # Block for timeout_sec so that server can start
