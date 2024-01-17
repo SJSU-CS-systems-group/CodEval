@@ -357,7 +357,7 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
         None
     """
 
-    print(f'Starting server with command: {' '.join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
+    print(f'Starting server with command: {" ".join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
           f'after {kill_timeout_sec} seconds.')
 
     # Send output to compile log in background
