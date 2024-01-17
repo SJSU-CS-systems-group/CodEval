@@ -425,7 +425,7 @@ def evaluate():
 
 
 def parse_tags(tags: list[str]):
-    """Given file open in read mode, parses and executes tags
+    """Given list of strings, parses and executes tags
 
     Arguments:
         tags (list[str]): list of tags and arguments to be parsed and executed
@@ -436,6 +436,11 @@ def parse_tags(tags: list[str]):
     tag_pattern = r'([A-Z]+) (.*)'
     for tag_line in tags:
         tag_match = re.match(tag_pattern, tag_line)
+
+        # If line does not match tag format
+        if not tag_match:
+            continue
+
         tag = tag_match.group(1)
         args = tag_match.group(2).split(' ')
 
@@ -443,7 +448,8 @@ def parse_tags(tags: list[str]):
         try:
             tag_func_map[tag](*args)
         except KeyError:
-            print(f'Invalid tag {tag} for parsing.')
+            # Tag was not found in dictionary
+            continue
         except (TypeError, ValueError):
             print(f'Invalid arguments for tag {tag}')
 
