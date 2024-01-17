@@ -77,7 +77,7 @@ def check_function(function_name, *files):
     check_test()
 
     # Surpress output
-    function_popen = subprocess.Popen([f'grep "[^[:alpha:]]{function_name}[[:space:]]*("',
+    function_popen = subprocess.Popen(['grep', f'"[^[:alpha:]]{function_name}[[:space:]]*("',
                                        ' '.join(files)],
                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -102,7 +102,7 @@ def check_not_function(function_name, *files):
     check_test()
 
     # Surpress output
-    function_popen = subprocess.Popen([f'grep "[^[:alpha:]]{function_name}[[:space:]]*("',
+    function_popen = subprocess.Popen(['grep', f'"[^[:alpha:]]{function_name}[[:space:]]*("',
                                        ' '.join(files)],
                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
