@@ -405,8 +405,15 @@ tag_func_map = {
 }
 
 
+def setup():
+    # Create files
+    open('fileinput', 'w').close()
+
+
 def evaluate():
     start_time_seconds = time.time()
+
+    setup()
 
     # Count test case total
     global test_case_total
