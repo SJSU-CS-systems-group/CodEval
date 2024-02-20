@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 import threading
 import time
 
@@ -48,17 +49,18 @@ def compile_code(*compile_command):
     compile_popen.communicate(compile_popen)
     if compile_popen.returncode:
         with open('compilelog', 'r') as infile:
-            compile_log = infile.readlines
+            compile_log = infile.readlines()
 
         # Print head of compile log
         for line in compile_log[:10]:
-            print(line)
+            print(line, end="")
 
-        print('...')
+        if len(compile_log) > 10:
+            print('...', end="")
 
-        # Print tail of compile log
-        for line in compile_log[-10:]:
-            print(line)
+            # Print tail of compile log
+            for line in compile_log[-10:]:
+                print(line, end="")
 
         sys.exit(1)
 
@@ -459,7 +461,8 @@ def parse_tags(tags: list[str]):
             # Tag was not found in dictionary
             continue
         except (TypeError, ValueError):
-            print(f'Invalid arguments for tag {tag}')
+            traceback.print_exc()
+            print(f'Invalid arguments for tag {tag} {args}')
 
 
 def parse_diff(diff_lines: list[str]):
@@ -575,6 +578,8 @@ def check_test():
 
         # Exit program after failed test case
         sys.exit(2)
+
+    # Re-initialize test variables here
 
 
 if __name__ == '__main__':
