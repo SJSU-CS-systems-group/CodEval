@@ -311,7 +311,7 @@ def get_codeval_folder(course):
     for folder in canvas_folders:
         if folder.name == "CodEval":
             return folder
-    error("could not file CodeEval folder")
+    error("could not file CodEval folder")
     exit(2)
 
 
