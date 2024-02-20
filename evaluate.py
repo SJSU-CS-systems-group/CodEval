@@ -474,6 +474,7 @@ def parse_diff(diff_lines: list[str]):
     Returns:
         None
     """
+    os.makedirs('evaluationLogs', exist_ok=True)
     # Directly write into logOfDiff rather than use redirection
     with open('evaluationLogs/logOfDiff', 'w') as outfile:
         for line in diff_lines:
@@ -518,13 +519,13 @@ def check_test():
     # Difflog handling
     with open('difflog', 'w') as outfile:
         diff_popen = subprocess.Popen('diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22',
-                                      stdout=outfile, stderr=outfile, text=True)
+                                      shell=True, stdout=outfile, stderr=outfile, text=True)
         diff_popen.communicate()
 
     # Append to difflog second time around
     with open('difflog', 'a') as outfile:
         diff_popen = subprocess.Popen('diff -U1 -a ./yourerror ./expectederror | cat -te | head -22',
-                                      stdout=outfile, stderr=outfile, text=True)
+                                      shell=True, stdout=outfile, stderr=outfile, text=True)
         diff_popen.communicate()
 
     # Now read all the lines to accumulate both diffs
@@ -569,7 +570,7 @@ def check_test():
 
             # Cleanup
             print(f'    Command ran: {test_args}')
-            for file in os.listdir('evaluationlogs'):
+            for file in os.listdir('evaluationLogs'):
                 with open(file, 'r') as infile:
                     file_lines = infile.readlines()
 
@@ -579,8 +580,7 @@ def check_test():
         # Exit program after failed test case
         sys.exit(2)
 
-    # Re-initialize test variables here
-
+    # reinitialize test variables and files here
 
 if __name__ == '__main__':
     evaluate()
