@@ -2,6 +2,7 @@
 
 import os
 import re
+import shlex
 import subprocess
 import sys
 import traceback
@@ -30,7 +31,7 @@ is_hidden_testcase = False
 ###########################################################
 
 
-def compile_code(*compile_command):
+def compile_code(compile_command):
     """Specifies the command to compile the submission code
 
     Arguments:
@@ -44,7 +45,7 @@ def compile_code(*compile_command):
 
     # Run compile command
     with open('compilelog', 'w') as outfile:
-        compile_popen = subprocess.Popen(compile_command, stdout=outfile, stderr=outfile, text=True)
+        compile_popen = subprocess.Popen(shlex.split(compile_command), stdout=outfile, stderr=outfile, text=True)
 
     compile_popen.communicate(compile_popen)
     if compile_popen.returncode:
@@ -115,7 +116,7 @@ def check_not_function(function_name, *files):
         print(f'not using {function_name} FAILED')
 
 
-def run_command(*command):
+def run_command(command):
     """Will be followed by a command to run.
 
     Arguments:
@@ -127,11 +128,11 @@ def run_command(*command):
     check_test()
 
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    command_popen = subprocess.Popen(shlex.split(command))
     command_popen.communicate()
 
 
-def run_command_noerror(*command):
+def run_command_noerror(command):
     """Will be followed by a command to run, evaluation fails if the command exits with an error.
 
     Arguments:
@@ -148,11 +149,13 @@ def run_command_noerror(*command):
     print(f'Test case count {test_case_count} of {test_case_total}')
 
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    command_popen = subprocess.Popen(shlex.split(command))
     command_popen.communicate()
 
-    if command_popen.returncode:
-        print('FAILED')
+    exit_code = command_popen.returncode
+
+    if exit_code != expected_exit_code:
+        print(f'exit code {exit_code} != {expected_exit_code}')
         for file in os.listdir('evaluationLogs'):
             with open(file, 'r') as infile:
                 file_lines = infile.readlines()
@@ -236,7 +239,7 @@ def test_case_hidden(*test_case_command):
     test_case_hidden = True
 
 
-def supply_input(*inputs):
+def supply_input(inputs):
     """Specifies the input for a test case.
 
     Arguments:
@@ -246,7 +249,8 @@ def supply_input(*inputs):
         None
     """
     with open('fileinput', 'a') as outfile:
-        outfile.write(' '.join(inputs))
+        outfile.write(inputs)
+        outfile.write("\n")
 
 
 def supply_input_file(input_file):
@@ -265,7 +269,7 @@ def supply_input_file(input_file):
         outfile.writelines(input_lines)
 
 
-def check_output(*outputs):
+def check_output(outputs):
     """Specifies the expected output for a test case.
 
     Arguments:
@@ -275,7 +279,8 @@ def check_output(*outputs):
         None
     """
     with open('expectedoutput', 'a') as outfile:
-        outfile.write(' '.join(outputs))
+        outfile.write(outputs)
+        outfile.write("\n");
 
 
 def check_output_file(output_file):
@@ -294,7 +299,7 @@ def check_output_file(output_file):
         outfile.writelines(output_lines)
 
 
-def check_error(*error_output):
+def check_error(error_output):
     """Specifies the expected error output for a test case.
 
     Arguments:
@@ -304,10 +309,10 @@ def check_error(*error_output):
         None
     """
     with open('expectederror', 'a') as outfile:
-        outfile.write(' '.join(error_output))
+        outfile.write(error_output)
 
 
-def hint(*hints):
+def hint(hints):
     """Hint
 
     Arguments:
@@ -317,7 +322,7 @@ def hint(*hints):
         None
     """
     global test_case_hint
-    test_case_hint = ' '.join(hints)
+    test_case_hint = hints
 
 
 def timeout(timeout_sec):
@@ -452,11 +457,11 @@ def parse_tags(tags: list[str]):
             continue
 
         tag = tag_match.group(1)
-        args = tag_match.group(2).split(' ')
+        args = tag_match.group(2)
 
         # Execute function based on tag-function mapping
         try:
-            tag_func_map[tag](*args)
+            tag_func_map[tag](args)
         except KeyError:
             # Tag was not found in dictionary
             continue
@@ -533,6 +538,7 @@ def check_test():
         diff_lines = infile.readlines()
 
     if len(diff_lines):
+        print("".join(diff_lines))
         passed = False
         parse_diff(diff_lines)
 
