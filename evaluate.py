@@ -24,8 +24,6 @@ test_case_total = 0
 num_passed = 0
 num_failed = 0
 is_hidden_testcase = False
-is_verbose = False
-compilelog = []
 
 ###########################################################
 # Specification Tags to Function Mapping
@@ -45,15 +43,12 @@ def compile_code(*compile_command):
         check_test()
 
     # Run compile command
-    with open("compilelog", "w") as outfile:
-        compile_popen = subprocess.Popen(
-            compile_command, stdout=outfile, stderr=outfile, text=True
-        )
+    with open('compilelog', 'w') as outfile:
+        compile_popen = subprocess.Popen(compile_command, stdout=outfile, stderr=outfile, text=True)
 
     compile_popen.communicate(compile_popen)
-
     if compile_popen.returncode:
-        with open("compilelog", "r") as infile:
+        with open('compilelog', 'r') as infile:
             compile_log = infile.readlines()
 
         # Print head of compile log
@@ -61,7 +56,7 @@ def compile_code(*compile_command):
             print(line, end="")
 
         if len(compile_log) > 10:
-            print("...", end="")
+            print('...', end="")
 
             # Print tail of compile log
             for line in compile_log[-10:]:
@@ -84,17 +79,15 @@ def check_function(function_name, *files):
     check_test()
 
     # Surpress output
-    function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    function_popen = subprocess.Popen(['grep', f'"[^[:alpha:]]{function_name}[[:space:]]*("',
+                                       ' '.join(files)],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     function_popen.communicate()
     if function_popen.returncode:
-        print(f"not using {function_name} FAILED")
+        print(f'not using {function_name} FAILED')
     else:
-        print(f"used{function_name} PASSED")
+        print(f'used{function_name} PASSED')
 
 
 def check_not_function(function_name, *files):
@@ -111,17 +104,15 @@ def check_not_function(function_name, *files):
     check_test()
 
     # Surpress output
-    function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    function_popen = subprocess.Popen(['grep', f'"[^[:alpha:]]{function_name}[[:space:]]*("',
+                                       ' '.join(files)],
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     function_popen.communicate()
     if function_popen.returncode:
-        print(f"used{function_name} PASSED")
+        print(f'used{function_name} PASSED')
     else:
-        print(f"not using {function_name} FAILED")
+        print(f'not using {function_name} FAILED')
 
 
 def run_command(*command):
@@ -154,24 +145,25 @@ def run_command_noerror(*command):
     # Run as test case
     global test_case_count
     test_case_count += 1
-    print(f"Test case count {test_case_count} of {test_case_total}")
+    print(f'Test case count {test_case_count} of {test_case_total}')
 
     # Execute without surpressing output
     command_popen = subprocess.Popen(command)
     command_popen.communicate()
 
     if command_popen.returncode:
-        print("FAILED")
-        for file in os.listdir("evaluationLogs"):
-            with open(file, "r") as infile:
+        print('FAILED')
+        for file in os.listdir('evaluationLogs'):
+            with open(file, 'r') as infile:
                 file_lines = infile.readlines()
+
             # Print entire file
-            print("\n".join(file_lines))
+            print('\n'.join(file_lines))
 
         # Exit entire program with error
         sys.exit(1)
     else:
-        print("PASSED")
+        print('PASSED')
 
 
 def compare(file1, file2):
@@ -253,8 +245,8 @@ def supply_input(*inputs):
     Returns:
         None
     """
-    with open("fileinput", "a") as outfile:
-        outfile.write(" ".join(inputs))
+    with open('fileinput', 'a') as outfile:
+        outfile.write(' '.join(inputs))
 
 
 def supply_input_file(input_file):
@@ -266,10 +258,10 @@ def supply_input_file(input_file):
     Returns:
         None
     """
-    with open(input_file, "r") as infile:
+    with open(input_file, 'r') as infile:
         input_lines = infile.readlines()
 
-    with open("fileinput", "a") as outfile:
+    with open('fileinput', 'a') as outfile:
         outfile.writelines(input_lines)
 
 
@@ -282,9 +274,8 @@ def check_output(*outputs):
     Returns:
         None
     """
-
-    with open("expectedoutput", "w") as outfile:
-        outfile.write(" ".join(outputs) + "\n")
+    with open('expectedoutput', 'a') as outfile:
+        outfile.write(' '.join(outputs))
 
 
 def check_output_file(output_file):
@@ -296,10 +287,10 @@ def check_output_file(output_file):
     Returns:
         None
     """
-    with open(output_file, "r") as infile:
+    with open(output_file, 'r') as infile:
         output_lines = infile.readlines()
 
-    with open("expectedoutput", "w") as outfile:
+    with open('expectedoutput', 'a') as outfile:
         outfile.writelines(output_lines)
 
 
@@ -312,8 +303,8 @@ def check_error(*error_output):
     Returns:
         None
     """
-    with open("expectederror", "a") as outfile:
-        outfile.write(" ".join(error_output))
+    with open('expectederror', 'a') as outfile:
+        outfile.write(' '.join(error_output))
 
 
 def hint(*hints):
@@ -326,7 +317,7 @@ def hint(*hints):
         None
     """
     global test_case_hint
-    test_case_hint = " ".join(hints)
+    test_case_hint = ' '.join(hints)
 
 
 def timeout(timeout_sec):
@@ -368,31 +359,23 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
         None
     """
 
-    print(
-        f'Starting server with command: {" ".join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
-        f'after {kill_timeout_sec} seconds.'
-    )
+    print(f'Starting server with command: {" ".join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
+          f'after {kill_timeout_sec} seconds.')
 
     # Send output to compile log in background
-    with open("compilelog", "w") as outfile:
-        server_popen = subprocess.Popen(
-            server_cmd, stdout=outfile, stderr=outfile, text=True
-        )
+    with open('compilelog', 'w') as outfile:
+        server_popen = subprocess.Popen(server_cmd, stdout=outfile, stderr=outfile, text=True)
 
-    print(f"Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.")
+    print(f'Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.')
     # Block for timeout_sec so that server can start
     time.sleep(float(timeout_sec))
 
     # Kill the server after the timeout
     def kill_server(pid):
-        print(f"Killing {pid}")
-        subprocess.Popen(
-            f"kill -9 {pid}", stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        print(f'Killing {pid}')
+        subprocess.Popen(f'kill -9 {pid}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    kill_timer = threading.Timer(
-        float(kill_timeout_sec), kill_server, *[server_popen.pid]
-    )
+    kill_timer = threading.Timer(float(kill_timeout_sec), kill_server, *[server_popen.pid])
     kill_timer.daemon = True
     kill_timer.start()
 
@@ -404,40 +387,29 @@ Assume that everything will be passed to these functions as a string, account fo
 this in the function itself.
 """
 tag_func_map = {
-    "C": compile_code,
-    "CF": check_function,
-    "NCF": check_not_function,
-    "CMD": run_command,
-    "TCMD": run_command_noerror,
-    "CMP": compare,
-    "T": test_case,
-    "HT": test_case_hidden,
-    "I": supply_input,
-    "IF": supply_input_file,
-    "O": check_output,
-    "OF": check_output_file,
-    "E": check_error,
-    "HINT": hint,
-    "TO": timeout,
-    "X": exit_code,
-    "SS": start_server,
+    'C': compile_code,
+    'CF': check_function,
+    'NCF': check_not_function,
+    'CMD': run_command,
+    'TCMD': run_command_noerror,
+    'CMP': compare,
+    'T': test_case,
+    'HT': test_case_hidden,
+    'I': supply_input,
+    'IF': supply_input_file,
+    'O': check_output,
+    'OF': check_output_file,
+    'E': check_error,
+    'HINT': hint,
+    'TO': timeout,
+    'X': exit_code,
+    'SS': start_server
 }
 
 
 def setup():
-    files = [
-        "compilelog",
-        "difflog",
-        "expectedoutput",
-        "expectederror",
-        "fileinput",
-        "yourerror",
-        "youroutput",
-    ]
-    cleanup()
     # Create files
-    for file in files:
-        open(file, "w").close()
+    open('fileinput', 'w').close()
 
 
 def evaluate():
@@ -447,24 +419,19 @@ def evaluate():
 
     # Count test case total
     global test_case_total
-    with open("testcases.txt", "r") as infile:
+    with open('testcases.txt', 'r') as infile:
         testcases = infile.readlines()
         for testcase in testcases:
             if testcase.split(" ")[0] == "T" or testcase.split(" ")[0] == "HT":
                 test_case_total += 1
 
     # Read testcases
-    with open("testcases.txt", "r") as infile:
+    with open('testcases.txt', 'r') as infile:
         testcases = infile.readlines()
         parse_tags(testcases)
 
-    # cleanup
-    # if os.path.exists("fileinput"):
-    #     os.remove("fileinput")
-    cleanup()
-
     end_time_seconds = time.time()
-    print(f"took {end_time_seconds - start_time_seconds} seconds")
+    print(f'took {end_time_seconds - start_time_seconds} seconds')
 
 
 def parse_tags(tags: list[str]):
@@ -476,7 +443,7 @@ def parse_tags(tags: list[str]):
     Returns:
         None
     """
-    tag_pattern = r"([A-Z]+) (.*)"
+    tag_pattern = r'([A-Z]+) (.*)'
     for tag_line in tags:
         tag_match = re.match(tag_pattern, tag_line)
 
@@ -485,7 +452,7 @@ def parse_tags(tags: list[str]):
             continue
 
         tag = tag_match.group(1)
-        args = tag_match.group(2).split(" ")
+        args = tag_match.group(2).split(' ')
 
         # Execute function based on tag-function mapping
         try:
@@ -495,7 +462,7 @@ def parse_tags(tags: list[str]):
             continue
         except (TypeError, ValueError):
             traceback.print_exc()
-            print(f"Invalid arguments for tag {tag} {args}")
+            print(f'Invalid arguments for tag {tag} {args}')
 
 
 def parse_diff(diff_lines: list[str]):
@@ -507,23 +474,23 @@ def parse_diff(diff_lines: list[str]):
     Returns:
         None
     """
-    os.makedirs("evaluationLogs", exist_ok=True)
+    os.makedirs('evaluationLogs', exist_ok=True)
     # Directly write into logOfDiff rather than use redirection
-    with open("evaluationLogs/logOfDiff", "w") as outfile:
+    with open('evaluationLogs/logOfDiff', 'w') as outfile:
         for line in diff_lines:
-            first_word = line.split(" ")[:2]
+            first_word = line.split(' ')[:2]
             first_character = first_word[0]
 
-            if first_character != "@":
+            if first_character != '@':
                 # Lines present in your output but not present in expected
-                if first_character == "-" and first_word[:3] == "---":
+                if first_character == '-' and first_word[:3] == '---':
                     student_output_file = line[3:-37]
-                    outfile.write(f"Your output file: {student_output_file}")
+                    outfile.write(f'Your output file: {student_output_file}')
 
                 # Lines present in expected output but not in yours
-                elif first_character == "+" and first_word[:3] == "+++":
+                elif first_character == '+' and first_word[:3] == '+++':
                     expected_output_file = line[3:-37]
-                    outfile.write(f"Expected output file: {expected_output_file}")
+                    outfile.write(f'Expected output file: {expected_output_file}')
 
                 # Catch rest
                 else:
@@ -534,48 +501,35 @@ def check_test():
     if test_args == "":
         return
 
-    print(f"Test case {test_case_count} of {test_case_total}")
+    print(f'Test case {test_case_count} of {test_case_total}')
     passed = True
 
-    with open("fileinput", "r") as fileinput, open(
-        "youroutput", "w"
-    ) as youroutput, open("yourerror", "w") as yourerror:
-        test_exec = subprocess.Popen(
-            test_args, stdin=fileinput, stdout=youroutput, stderr=yourerror
-        )
+    with open('fileinput', 'r') as fileinput, \
+         open('youroutput', 'w') as youroutput, \
+         open('yourerror', 'w') as yourerror:
+        test_exec = subprocess.Popen(test_args, stdin=fileinput, stdout=youroutput, stderr=yourerror)
 
     # Timeout handling
     try:
         test_exec.communicate(timeout=timeout_val)
-
     except TimeoutError:
-        print(f"Took more than {timeout_val} seconds to run. FAIL")
+        print(f'Took more than {timeout_val} seconds to run. FAIL')
         passed = False
 
     # Difflog handling
-    with open("difflog", "w") as outfile:
-        diff_popen = subprocess.Popen(
-            "diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22",
-            shell=True,
-            stdout=outfile,
-            stderr=outfile,
-            text=True,
-        )
+    with open('difflog', 'w') as outfile:
+        diff_popen = subprocess.Popen('diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22',
+                                      shell=True, stdout=outfile, stderr=outfile, text=True)
         diff_popen.communicate()
 
     # Append to difflog second time around
-    with open("difflog", "a") as outfile:
-        diff_popen = subprocess.Popen(
-            "diff -U1 -a ./yourerror ./expectederror | cat -te | head -22",
-            shell=True,
-            stdout=outfile,
-            stderr=outfile,
-            text=True,
-        )
+    with open('difflog', 'a') as outfile:
+        diff_popen = subprocess.Popen('diff -U1 -a ./yourerror ./expectederror | cat -te | head -22',
+                                      shell=True, stdout=outfile, stderr=outfile, text=True)
         diff_popen.communicate()
 
     # Now read all the lines to accumulate both diffs
-    with open("difflog", "r") as infile:
+    with open('difflog', 'r') as infile:
         diff_lines = infile.readlines()
 
     if len(diff_lines):
@@ -585,13 +539,11 @@ def check_test():
     # Exit code handling
     if expected_exit_code != -1 and test_exec.returncode != expected_exit_code:
         passed = False
-        print(
-            f"    Exit Code failure: expected {expected_exit_code} got {test_exec.returncode}"
-        )
+        print(f'    Exit Code failure: expected {expected_exit_code} got {test_exec.returncode}')
 
     # Compare files handling, do not surpress output
     for files in cmps:
-        cmd_popen = subprocess.Popen(["cmp", files])
+        cmd_popen = subprocess.Popen(['cmp', files])
         cmd_popen.communicate()
         if cmd_popen.returncode:
             passed = False
@@ -609,50 +561,26 @@ def check_test():
 
         # Hidden test case handling
         if test_case_hidden:
-            print("    Test Case is Hidden")
+            print('    Test Case is Hidden')
             if hint:
-                print(f"HINT: {hint}")
+                print(f'HINT: {hint}')
         else:
             if hint:
-                print(f"HINT: {hint}")
+                print(f'HINT: {hint}')
 
             # Cleanup
-            print(f"    Command ran: {test_args}")
-            for file in os.listdir("evaluationLogs"):
-                with open("evaluationLogs/" + file, "r") as infile:
+            print(f'    Command ran: {test_args}')
+            for file in os.listdir('evaluationLogs'):
+                with open(file, 'r') as infile:
                     file_lines = infile.readlines()
 
                 # Print entire file
-                print("\n".join(file_lines))
-
-        cleanup()
+                print('\n'.join(file_lines))
 
         # Exit program after failed test case
         sys.exit(2)
 
     # reinitialize test variables and files here
 
-
-def cleanup():
-    files = [
-        "compilelog",
-        "difflog",
-        "expectedoutput",
-        "expectederror",
-        "fileinput",
-        "yourerror",
-        "youroutput",
-    ]
-
-    if os.path.exists("evaluationLogs"):
-        if os.path.exists("evaluationLogs/logOfDiff"):
-            os.remove("evaluationLogs/logOfDiff")
-            os.rmdir("evaluationLogs")
-
-    for name in files:
-        if os.path.exists(name):
-            os.remove(name)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     evaluate()
