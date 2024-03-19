@@ -32,7 +32,7 @@ compilelog = []
 ###########################################################
 
 
-def compile_code(*compile_command):
+def compile_code(compile_command):
     """Specifies the command to compile the submission code
 
     Arguments:
@@ -70,7 +70,7 @@ def compile_code(*compile_command):
         sys.exit(1)
 
 
-def check_function(function_name, *files):
+def check_function(function_name, files):
     """Will be followed by a function name and a list of files to check to ensure that the function
     is used by one of those files.
 
@@ -97,7 +97,7 @@ def check_function(function_name, *files):
         print(f"used{function_name} PASSED")
 
 
-def check_not_function(function_name, *files):
+def check_not_function(function_name, files):
     """Will be followed by a function name and a list of files to check to ensure that the function
     is not used by any of those files.
 
@@ -124,7 +124,7 @@ def check_not_function(function_name, *files):
         print(f"not using {function_name} FAILED")
 
 
-def run_command(*command):
+def run_command(command):
     """Will be followed by a command to run.
 
     Arguments:
@@ -140,7 +140,7 @@ def run_command(*command):
     command_popen.communicate()
 
 
-def run_command_noerror(*command):
+def run_command_noerror(command):
     """Will be followed by a command to run, evaluation fails if the command exits with an error.
 
     Arguments:
@@ -188,7 +188,7 @@ def compare(file1, file2):
     cmps.append(file2)
 
 
-def test_case(*test_case_command):
+def test_case(test_case_command):
     """Will be followed by the command to run to test the submission.
 
     Arguments:
@@ -216,7 +216,7 @@ def test_case(*test_case_command):
     test_case_hidden = False
 
 
-def test_case_hidden(*test_case_command):
+def test_case_hidden(test_case_command):
     """Will be followed by the command to run to test the submission. Test case is hidden.
 
     Arguments:
@@ -244,7 +244,7 @@ def test_case_hidden(*test_case_command):
     test_case_hidden = True
 
 
-def supply_input(*inputs):
+def supply_input(inputs):
     """Specifies the input for a test case.
 
     Arguments:
@@ -273,7 +273,7 @@ def supply_input_file(input_file):
         outfile.writelines(input_lines)
 
 
-def check_output(*outputs):
+def check_output(outputs):
     """Specifies the expected output for a test case.
 
     Arguments:
@@ -303,7 +303,7 @@ def check_output_file(output_file):
         outfile.writelines(output_lines)
 
 
-def check_error(*error_output):
+def check_error(error_output):
     """Specifies the expected error output for a test case.
 
     Arguments:
@@ -316,7 +316,7 @@ def check_error(*error_output):
         outfile.write(" ".join(error_output))
 
 
-def hint(*hints):
+def hint(hints):
     """Hint
 
     Arguments:
@@ -485,11 +485,11 @@ def parse_tags(tags: list[str]):
             continue
 
         tag = tag_match.group(1)
-        args = tag_match.group(2).split(" ")
+        args = tag_match.group(2)
 
         # Execute function based on tag-function mapping
         try:
-            tag_func_map[tag](*args)
+            tag_func_map[tag](args)
         except KeyError:
             # Tag was not found in dictionary
             continue
