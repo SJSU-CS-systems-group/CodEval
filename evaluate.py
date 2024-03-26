@@ -2,6 +2,7 @@
 
 import os
 import re
+import shlex
 import subprocess
 import sys
 import traceback
@@ -32,7 +33,7 @@ compilelog = []
 ###########################################################
 
 
-def compile_code(*compile_command):
+def compile_code(compile_command):
     """Specifies the command to compile the submission code
 
     Arguments:
@@ -47,7 +48,7 @@ def compile_code(*compile_command):
     # Run compile command
     with open("compilelog", "w") as outfile:
         compile_popen = subprocess.Popen(
-            compile_command, stdout=outfile, stderr=outfile, text=True
+            compile_command, shell=True, stdout=outfile, stderr=outfile, text=True
         )
 
     compile_popen.communicate(compile_popen)
@@ -70,7 +71,7 @@ def compile_code(*compile_command):
         sys.exit(1)
 
 
-def check_function(function_name, *files):
+def check_function(args):
     """Will be followed by a function name and a list of files to check to ensure that the function
     is used by one of those files.
 
@@ -82,10 +83,13 @@ def check_function(function_name, *files):
         None
     """
     check_test()
+    args = args.split()
+    function_name = args[0]
+    files = args[1:]
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
+        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] + files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -97,7 +101,7 @@ def check_function(function_name, *files):
         print(f"used{function_name} PASSED")
 
 
-def check_not_function(function_name, *files):
+def check_not_function(args):
     """Will be followed by a function name and a list of files to check to ensure that the function
     is not used by any of those files.
 
@@ -109,10 +113,13 @@ def check_not_function(function_name, *files):
         None
     """
     check_test()
+    args = args.split()
+    function_name = args[0]
+    files = args[1:]
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
+        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] +  files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -124,7 +131,7 @@ def check_not_function(function_name, *files):
         print(f"not using {function_name} FAILED")
 
 
-def run_command(*command):
+def run_command(command):
     """Will be followed by a command to run.
 
     Arguments:
@@ -136,11 +143,12 @@ def run_command(*command):
     check_test()
 
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    print(command)
+    command_popen = subprocess.Popen(command, shell=True)
     command_popen.communicate()
 
 
-def run_command_noerror(*command):
+def run_command_noerror(command):
     """Will be followed by a command to run, evaluation fails if the command exits with an error.
 
     Arguments:
@@ -157,7 +165,7 @@ def run_command_noerror(*command):
     print(f"Test case count {test_case_count} of {test_case_total}")
 
     # Execute without surpressing output
-    command_popen = subprocess.Popen(command)
+    command_popen = subprocess.Popen(command, shell=True)
     command_popen.communicate()
 
     if command_popen.returncode:
@@ -188,7 +196,7 @@ def compare(file1, file2):
     cmps.append(file2)
 
 
-def test_case(*test_case_command):
+def test_case(test_case_command):
     """Will be followed by the command to run to test the submission.
 
     Arguments:
@@ -216,7 +224,7 @@ def test_case(*test_case_command):
     test_case_hidden = False
 
 
-def test_case_hidden(*test_case_command):
+def test_case_hidden(test_case_command):
     """Will be followed by the command to run to test the submission. Test case is hidden.
 
     Arguments:
@@ -244,7 +252,7 @@ def test_case_hidden(*test_case_command):
     test_case_hidden = True
 
 
-def supply_input(*inputs):
+def supply_input(inputs):
     """Specifies the input for a test case.
 
     Arguments:
@@ -254,7 +262,7 @@ def supply_input(*inputs):
         None
     """
     with open("fileinput", "a") as outfile:
-        outfile.write(" ".join(inputs))
+        outfile.write(inputs)
 
 
 def supply_input_file(input_file):
@@ -273,7 +281,7 @@ def supply_input_file(input_file):
         outfile.writelines(input_lines)
 
 
-def check_output(*outputs):
+def check_output(outputs):
     """Specifies the expected output for a test case.
 
     Arguments:
@@ -284,7 +292,7 @@ def check_output(*outputs):
     """
 
     with open("expectedoutput", "w") as outfile:
-        outfile.write(" ".join(outputs) + "\n")
+        outfile.write(outputs + "\n")
 
 
 def check_output_file(output_file):
@@ -303,7 +311,7 @@ def check_output_file(output_file):
         outfile.writelines(output_lines)
 
 
-def check_error(*error_output):
+def check_error(error_output):
     """Specifies the expected error output for a test case.
 
     Arguments:
@@ -313,10 +321,10 @@ def check_error(*error_output):
         None
     """
     with open("expectederror", "a") as outfile:
-        outfile.write(" ".join(error_output))
+        outfile.write(error_output)
 
 
-def hint(*hints):
+def hint(hints):
     """Hint
 
     Arguments:
@@ -326,7 +334,7 @@ def hint(*hints):
         None
     """
     global test_case_hint
-    test_case_hint = " ".join(hints)
+    test_case_hint = hints
 
 
 def timeout(timeout_sec):
@@ -376,7 +384,7 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
     # Send output to compile log in background
     with open("compilelog", "w") as outfile:
         server_popen = subprocess.Popen(
-            server_cmd, stdout=outfile, stderr=outfile, text=True
+            server_cmd, shell=True, stdout=outfile, stderr=outfile, text=True
         )
 
     print(f"Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.")
@@ -387,7 +395,7 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
     def kill_server(pid):
         print(f"Killing {pid}")
         subprocess.Popen(
-            f"kill -9 {pid}", stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ['kill', '-9', f'{pid}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
     kill_timer = threading.Timer(
@@ -485,11 +493,11 @@ def parse_tags(tags: list[str]):
             continue
 
         tag = tag_match.group(1)
-        args = tag_match.group(2).split(" ")
+        args = tag_match.group(2)
 
         # Execute function based on tag-function mapping
         try:
-            tag_func_map[tag](*args)
+            tag_func_map[tag](args)
         except KeyError:
             # Tag was not found in dictionary
             continue
@@ -541,7 +549,7 @@ def check_test():
         "youroutput", "w"
     ) as youroutput, open("yourerror", "w") as yourerror:
         test_exec = subprocess.Popen(
-            test_args, stdin=fileinput, stdout=youroutput, stderr=yourerror
+            test_args, shell=True, stdin=fileinput, stdout=youroutput, stderr=yourerror
         )
 
     # Timeout handling
@@ -588,7 +596,7 @@ def check_test():
         print(
             f"    Exit Code failure: expected {expected_exit_code} got {test_exec.returncode}"
         )
-
+    
     # Compare files handling, do not surpress output
     for files in cmps:
         cmd_popen = subprocess.Popen(["cmp", files])
@@ -631,7 +639,6 @@ def check_test():
         sys.exit(2)
 
     # reinitialize test variables and files here
-
 
 def cleanup():
     files = [
