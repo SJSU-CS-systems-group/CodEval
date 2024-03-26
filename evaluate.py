@@ -85,7 +85,7 @@ def check_function(function_name, files):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
+        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] + files.split(' '),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -112,7 +112,7 @@ def check_not_function(function_name, files):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("', " ".join(files)],
+        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] +  files.split(' '),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -254,7 +254,7 @@ def supply_input(inputs):
         None
     """
     with open("fileinput", "a") as outfile:
-        outfile.write(" ".join(inputs))
+        outfile.write(inputs.split(' '))
 
 
 def supply_input_file(input_file):
@@ -485,7 +485,7 @@ def parse_tags(tags: list[str]):
             continue
 
         tag = tag_match.group(1)
-        args = tag_match.group(2)
+        args = tag_match.group(2).split(' ')
 
         # Execute function based on tag-function mapping
         try:
