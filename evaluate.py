@@ -88,7 +88,7 @@ def check_function(args):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'[^[:alpha:]]{function_name}[[:space:]]*('] + files,
+        ["grep", f"[^[:alpha:]]{function_name}[[:space:]]*("] + files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -118,7 +118,7 @@ def check_not_function(args):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] + files,
+        ["grep", f"[^[:alpha:]]{function_name}[[:space:]]*("] + files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -466,8 +466,6 @@ def evaluate():
         parse_tags(testcases)
 
     # cleanup
-    # if os.path.exists("fileinput"):
-    #     os.remove("fileinput")
     cleanup()
 
     end_time_seconds = time.time()
