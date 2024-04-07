@@ -88,16 +88,16 @@ def check_function(args):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] + files,
+        ["grep", f'[^[:alpha:]]{function_name}[[:space:]]*('] + files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
 
     function_popen.communicate()
     if function_popen.returncode:
-        print(f"not using {function_name} FAILED")
+        print(f"Not using {function_name} FAILED")
     else:
-        print(f"used{function_name} PASSED")
+        print(f"Used {function_name} PASSED")
 
 
 def check_not_function(args):
