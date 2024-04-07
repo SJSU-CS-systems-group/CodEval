@@ -2,7 +2,6 @@
 
 import os
 import re
-import shlex
 import subprocess
 import sys
 import traceback
@@ -119,7 +118,7 @@ def check_not_function(args):
 
     # Surpress output
     function_popen = subprocess.Popen(
-        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] +  files,
+        ["grep", f'"[^[:alpha:]]{function_name}[[:space:]]*("'] + files,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -395,7 +394,7 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
     def kill_server(pid):
         print(f"Killing {pid}")
         subprocess.Popen(
-            ['kill', '-9', f'{pid}'], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["kill", "-9", f"{pid}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
     kill_timer = threading.Timer(
@@ -469,7 +468,7 @@ def evaluate():
     # cleanup
     # if os.path.exists("fileinput"):
     #     os.remove("fileinput")
-    # cleanup()
+    cleanup()
 
     end_time_seconds = time.time()
     print(f"took {end_time_seconds - start_time_seconds} seconds")
@@ -596,7 +595,7 @@ def check_test():
         print(
             f"    Exit Code failure: expected {expected_exit_code} got {test_exec.returncode}"
         )
-    
+
     # Compare files handling, do not surpress output
     for files in cmps:
         cmd_popen = subprocess.Popen(["cmp", files])
@@ -639,6 +638,7 @@ def check_test():
         sys.exit(2)
 
     # reinitialize test variables and files here
+
 
 def cleanup():
     files = [
