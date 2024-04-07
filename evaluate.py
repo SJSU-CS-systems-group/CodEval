@@ -536,6 +536,7 @@ def parse_diff(diff_lines: list[str]):
 
 
 def check_test():
+    global test_args
     if test_args == "":
         return
 
@@ -607,6 +608,7 @@ def check_test():
         global num_passed
         num_passed += 1
         print("Passed")
+        test_args = ""
     else:
         global num_failed
         num_failed += 1
