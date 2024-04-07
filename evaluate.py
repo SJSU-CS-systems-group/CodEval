@@ -179,7 +179,6 @@ def run_command_noerror(command):
         sys.exit(1)
     else:
         print("PASSED")
-        print("PASSED")
 
 
 def compare(file1, file2):
