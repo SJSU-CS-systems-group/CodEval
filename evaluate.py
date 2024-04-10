@@ -465,6 +465,8 @@ def evaluate():
         testcases = infile.readlines()
         parse_tags(testcases)
 
+    check_test()
+
     # cleanup
     cleanup()
 
@@ -603,12 +605,13 @@ def check_test():
             passed = False
             break
 
+    test_args = ""
+
     # Pass fail handling
     if passed:
         global num_passed
         num_passed += 1
         print("Passed")
-        test_args = ""
     else:
         global num_failed
         num_failed += 1
