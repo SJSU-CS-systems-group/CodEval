@@ -290,7 +290,7 @@ def check_output(outputs):
         None
     """
 
-    with open("expectedoutput", "w") as outfile:
+    with open("expectedoutput", "a") as outfile:
         outfile.write(outputs + "\n")
 
 
@@ -306,7 +306,7 @@ def check_output_file(output_file):
     with open(output_file, "r") as infile:
         output_lines = infile.readlines()
 
-    with open("expectedoutput", "w") as outfile:
+    with open("expectedoutput", "a") as outfile:
         outfile.writelines(output_lines)
 
 
@@ -633,7 +633,7 @@ def check_test():
                     file_lines = infile.readlines()
 
                 # Print entire file
-                print("\n".join(file_lines))
+                print("".join(file_lines))
 
         cleanup()
 
@@ -641,6 +641,7 @@ def check_test():
         sys.exit(2)
 
     # reinitialize test variables and files here
+    setup()
 
 
 def cleanup():
