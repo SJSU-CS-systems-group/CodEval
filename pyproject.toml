@@ -7,7 +7,7 @@ name = "assignment-codeval"
 version = "0.0.1"
 description = "CodEval for evaluating programming assignments"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.12"
 dependencies = [
 "canvasapi==3.3.0",
 "certifi==2021.10.8",
