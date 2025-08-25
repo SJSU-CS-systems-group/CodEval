@@ -4,8 +4,8 @@ import itertools
 import tempfile
 from multiprocessing import Process
 from datetime import datetime
-from commons import debug, error, errorWithException, info, get_config
-from file_utils import download_attachment, unzip, set_acls, \
+from assignment_codeval.commons import debug, error, errorWithException, info, get_config
+from assignment_codeval.file_utils import download_attachment, unzip, set_acls, \
     copy_files_to_submission_dir
 from .classes import DistributedTests
 from .dist_utils import kill_stale_and_run_docker_container, \

@@ -4,7 +4,7 @@ from .containers import ContainerData, add_container, get_container_by_name, \
     remove_container_by_name, get_free_port, get_running_containers_count, \
     add_new_controller_container, get_controller_container, \
     remove_controller_container
-from commons import debug, error, errorWithException, warn
+from assignment_codeval.commons import debug, error, errorWithException, warn
 
 
 def _kill_stale_and_run_docker_container(

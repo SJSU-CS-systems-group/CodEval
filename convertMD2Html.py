@@ -1,6 +1,6 @@
 import markdown
 import re
-from commons import errorWithException,debug,error,info,warn,get_config
+from assignment_codeval.commons import info, get_config
 
 def sampleTestCases(listOfTC,numOfTC):
     counter = 0

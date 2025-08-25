@@ -6,11 +6,11 @@ import os, shutil, sys
 import subprocess
 import tempfile
 import traceback
-from commons import debug, error, errorWithException, info, warn, \
+from assignment_codeval.commons import debug, error, errorWithException, info, warn, \
     get_config, set_config
 from distributed import run_distributed_tests, \
     mark_submission_as_inactive_if_present
-from file_utils import copy_files_to_submission_dir, \
+from assignment_codeval.file_utils import copy_files_to_submission_dir, \
     download_attachment, set_acls, unzip
 import convertMD2Html
 
