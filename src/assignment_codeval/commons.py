@@ -1,3 +1,5 @@
+from typing import NoReturn
+
 import click
 import time
 import dataclasses
@@ -37,7 +39,7 @@ def debug(message):
 def error(message):
     click.echo(click.style(f"{_now()} E {message}", fg='red'))
 
-def errorWithException(message):
+def errorWithException(message) -> NoReturn:
     error(message)
     raise EnvironmentError(message)
 

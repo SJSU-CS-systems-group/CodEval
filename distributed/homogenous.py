@@ -1,5 +1,5 @@
-from typing import List, Tuple
-from commons import debug, error, errorWithException
+from typing import Tuple
+from assignment_codeval.commons import debug, error, errorWithException
 from .classes import DistributedTests
 from .dist_utils import run_external_command, \
     kill_stale_and_run_docker_container, run_command_in_containers, \

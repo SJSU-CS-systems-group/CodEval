@@ -2,10 +2,10 @@ import os
 import shutil
 import sys
 import subprocess
+
 import requests
-from distutils.dir_util import copy_tree
 import zipfile
-from commons import debug, error
+from assignment_codeval.commons import debug, error
 
 
 def download_attachment(directory, attachment):
@@ -53,10 +53,10 @@ def set_acls(temp_dir):
 
 
 def copy_files_to_submission_dir(temp_fixed, temp_dir):
-    copy_tree(temp_fixed, temp_dir)
-    shutil.copy("evaluate.sh", f"{temp_dir}/evaluate.sh")
+    shutil.copytree(temp_fixed, temp_dir, dirs_exist_ok=True)
+    shutil.copy("../../evaluate.sh", f"{temp_dir}/evaluate.sh")
     shutil.copy("evaluate.py", f"{temp_dir}/evaluate.py")
-    shutil.copy("runvalgrind.sh", f"{temp_dir}/runvalgrind.sh")
-    shutil.copy("parsediff", f"{temp_dir}/parsediff")
-    shutil.copy("parsevalgrind", f"{temp_dir}/parsevalgrind")
-    shutil.copy("checksql.sh", f"{temp_dir}/checksql.sh")
+    shutil.copy("../../runvalgrind.sh", f"{temp_dir}/runvalgrind.sh")
+    shutil.copy("../../parsediff", f"{temp_dir}/parsediff")
+    shutil.copy("../../parsevalgrind", f"{temp_dir}/parsevalgrind")
+    shutil.copy("../../checksql.sh", f"{temp_dir}/checksql.sh")

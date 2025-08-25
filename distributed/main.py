@@ -1,6 +1,5 @@
-from commons import debug, error, errorWithException
+from assignment_codeval.commons import debug, error, errorWithException
 from timeout import timeout
-from multiprocessing import Process
 from .classes import DistributedTests
 from .homogenous import run_homogenous_tests
 from .heterogenous import run_heterogenous_tests, \

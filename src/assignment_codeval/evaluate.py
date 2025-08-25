@@ -8,6 +8,9 @@ import traceback
 import threading
 import time
 
+import click
+
+from assignment_codeval.file_utils import unzip
 
 ###########################################################
 # Globals
@@ -290,7 +293,7 @@ def check_output(outputs):
         None
     """
 
-    with open("expectedoutput", "w") as outfile:
+    with open("expectedoutput", "a") as outfile:
         outfile.write(outputs + "\n")
 
 
@@ -306,7 +309,7 @@ def check_output_file(output_file):
     with open(output_file, "r") as infile:
         output_lines = infile.readlines()
 
-    with open("expectedoutput", "w") as outfile:
+    with open("expectedoutput", "a") as outfile:
         outfile.writelines(output_lines)
 
 
@@ -445,33 +448,6 @@ def setup():
     # Create files
     for file in files:
         open(file, "w").close()
-
-
-def evaluate():
-    start_time_seconds = time.time()
-
-    setup()
-
-    # Count test case total
-    global test_case_total
-    with open("testcases.txt", "r") as infile:
-        testcases = infile.readlines()
-        for testcase in testcases:
-            if testcase.split(" ")[0] == "T" or testcase.split(" ")[0] == "HT":
-                test_case_total += 1
-
-    # Read testcases
-    with open("testcases.txt", "r") as infile:
-        testcases = infile.readlines()
-        parse_tags(testcases)
-
-    check_test()
-
-    # cleanup
-    cleanup()
-
-    end_time_seconds = time.time()
-    print(f"took {end_time_seconds - start_time_seconds} seconds")
 
 
 def parse_tags(tags: list[str]):
@@ -633,7 +609,7 @@ def check_test():
                     file_lines = infile.readlines()
 
                 # Print entire file
-                print("\n".join(file_lines))
+                print("".join(file_lines))
 
         cleanup()
 
@@ -641,6 +617,7 @@ def check_test():
         sys.exit(2)
 
     # reinitialize test variables and files here
+    setup()
 
 
 def cleanup():
@@ -664,5 +641,36 @@ def cleanup():
             os.remove(name)
 
 
-if __name__ == "__main__":
-    evaluate()
+@click.command()
+@click.argument("codeval_file", type=click.Path(exists=True))
+def run_evaluation(codeval_file):
+    start_time_seconds = time.time()
+
+    setup()
+
+    # Count test case total
+    global test_case_total
+    with open(codeval_file, "r") as infile:
+        testcases = infile.readlines()
+        for testcase in testcases:
+            parts = testcase.split(" ", 1)
+            tag = parts[0]
+            if tag == "T" or tag == "HT":
+                test_case_total += 1
+            elif tag == "Z":
+                filename=parts[1].strip()
+                file = os.path.join(os.path.dirname(codeval_file), filename) if not filename.startswith("/") else filename
+                unzip(file, ".")
+
+    # Read testcases
+    with open(codeval_file, "r") as infile:
+        testcases = infile.readlines()
+        parse_tags(testcases)
+
+    check_test()
+
+    # cleanup
+    cleanup()
+
+    end_time_seconds = time.time()
+    print(f"took {end_time_seconds - start_time_seconds} seconds")
