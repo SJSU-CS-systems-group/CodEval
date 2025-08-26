@@ -1,6 +1,9 @@
 import os
 import re
+import subprocess
 import sys
+import tempfile
+from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
 
@@ -50,6 +53,51 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
                     with open(f"{dirpath}/comments.txt.sent", "w") as fd:
                         fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+
+
+@click.command()
+@click.argument('codeval_dir", metavar="CODEVAL_DIR"')
+@click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID", default='./submissions', show_default=True)
+def evaluate_submissions(codeval_dir, submissions_dir):
+    """
+    Evaluate submissions stored in the form COURSE/ASSIGNMENT/STUDENT_ID.
+
+    CODEVAL_DIR specifies a directory that has the codeval files named after the assignment with the .codeval suffix.
+    """
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    parser.config_file = config_file
+
+    raw_command = parser["RUN"]["command"]
+    if not raw_command:
+        warn(f"commands section under [RUN] in {parser.config_file} is empty")
+    for dirpath, dirnames, filenames in os.walk(submissions_dir):
+        match = re.match(fr'^{submissions_dir}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
+        if not match:
+            continue
+
+        assignment_name = match.group(2)
+        codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
+        if not os.path.exists(codeval_file):
+            warn(f"no codeval file found for {assignment_name} in {codeval_dir}")
+            continue
+
+
+        command = raw_command.replace("EVALUATE", "assignment_codeval evaluate codeval.txt")
+
+        command = command.replace("SUBMISSIONS", os.path.abspath(os.path.join(dirpath, "repo")))
+        debug(f"command to execute: {command}")
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        try:
+            out, err = p.communicate(timeout=compile_timeout)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out, err = p.communicate()
+            out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+            return out
+        with open(f"{dirpath}/comments.txt", "w") as fd:
+            fd.write(out)
 
 
 @click.command()
