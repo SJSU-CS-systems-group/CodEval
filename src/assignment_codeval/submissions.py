@@ -1,17 +1,17 @@
 import os
 import re
+import shutil
 import subprocess
-import sys
-import tempfile
 from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
+from tempfile import TemporaryFile, TemporaryDirectory
 from zipfile import ZipFile
 
 import click
 import requests
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course
+from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_assignment
 from assignment_codeval.commons import debug, error, info, warn
 
 
@@ -57,7 +57,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
 
 
 @click.command()
-@click.argument('codeval_dir", metavar="CODEVAL_DIR"')
+@click.argument('codeval_dir', metavar="CODEVAL_DIR")
 @click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID", default='./submissions', show_default=True)
 def evaluate_submissions(codeval_dir, submissions_dir):
     """
@@ -83,11 +83,13 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 
         codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
         if not os.path.exists(codeval_file):
-            warn(f"no codeval file found for {assignment_name} in {codeval_dir}")
+            warn(f"no codeval file found for {assignment_name} in {codeval_file}")
             continue
 
         # get the zipfiles (Z tag) and timeout (CTO tag)
         compile_timeout = 20
+        assignment_working_dir = "."
+        move_to_next_submission = False
         with open(codeval_file, "r") as fd:
             for line in fd:
                 line = line.strip()
@@ -96,25 +98,37 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         compile_timeout = int(line.split(None, 1)[1])
                     except Exception:
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
+                if line.startswith("CD"):
+                    assignment_working_dir = os.path.normpath(os.path.join(assignment_working_dir, line.split()[1].strip()))
+                    if not os.path.exists(os.path.join(repo_dir, assignment_working_dir)):
+                        out = f"{assignment_working_dir} does not exist\n".encode('utf-8')
+                        move_to_next_submission = True
+                        break
                 if line.startswith("Z"):
                     zipfile = line.split(None, 1)[1]
                     # unzip into the repo directory
                     with ZipFile(zipfile) as zf:
                         zf.extractall(repo_dir)
+        if not move_to_next_submission:
+            command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
 
-        command = raw_command.replace("EVALUATE", "assignment_codeval evaluate codeval.txt")
+            with TemporaryDirectory("cedir", dir="/var/tmp", delete=False) as link_dir:
+                repo_link = os.path.join(link_dir, "submissions")
+                os.symlink(repo_dir, repo_link)
+                submissions_dir = os.path.join(repo_link, assignment_working_dir)
+                shutil.copy(codeval_file, os.path.join(submissions_dir, "codeval.txt"))
 
-        command = command.replace("SUBMISSIONS", repo_dir)
-        debug(f"command to execute: {command}")
-        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        try:
-            out, err = p.communicate(timeout=compile_timeout)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            out, err = p.communicate()
-            out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
-            return out
-        with open(f"{dirpath}/comments.txt", "w") as fd:
+                command = command.replace("SUBMISSIONS", submissions_dir)
+                info(f"command to execute: {command}")
+                p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                try:
+                    out, err = p.communicate(timeout=compile_timeout)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    out, err = p.communicate()
+                    out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+
+        with open(f"{dirpath}/comments.txt", "wb") as fd:
             fd.write(out)
 
 
@@ -189,27 +203,6 @@ last_comment={last_comment_date}""", file=fd)
             debug(f"Downloaded submission for student {student_id} to {filepath}")
 
     return submission_dir
-
-
-@cache
-def get_assignment(course, assignment_name):
-    assignments = [a for a in course.get_assignments() if assignment_name.lower() in a.name.lower()]
-    if len(assignments) == 0:
-        error(f'no assignments found that contain {assignment_name}. options are:')
-        for a in course.get_assignments():
-            error(fr"    {a.name}")
-        sys.exit(2)
-    elif len(assignments) > 1:
-        strict_name_assignments = [a for a in assignments if a.name == assignment_name]
-        if len(strict_name_assignments) == 1:
-            assignments = strict_name_assignments
-        else:
-            error(f"multiple assignments found for {assignment_name}: {[a.name for a in assignments]}")
-            for a in assignments:
-                error(f"    {a.name}")
-            sys.exit(2)
-    assignment = assignments[0]
-    return assignment
 
 
 @cache

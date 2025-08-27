@@ -73,3 +73,24 @@ def get_courses(canvas, name: str, is_active=True, is_finished=False):
             c.end = end
             course_list.append(c)
     return course_list
+
+
+@cache
+def get_assignment(course, assignment_name):
+    assignments = [a for a in course.get_assignments() if assignment_name.lower() in a.name.lower()]
+    if len(assignments) == 0:
+        error(f'no assignments found that contain {assignment_name}. options are:')
+        for a in course.get_assignments():
+            error(fr"    {a.name}")
+        sys.exit(2)
+    elif len(assignments) > 1:
+        strict_name_assignments = [a for a in assignments if a.name == assignment_name]
+        if len(strict_name_assignments) == 1:
+            assignments = strict_name_assignments
+        else:
+            error(f"multiple assignments found for {assignment_name}: {[a.name for a in assignments]}")
+            for a in assignments:
+                error(f"    {a.name}")
+            sys.exit(2)
+    assignment = assignments[0]
+    return assignment

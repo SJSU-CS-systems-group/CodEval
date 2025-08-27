@@ -5,23 +5,23 @@ from configparser import ConfigParser
 
 import click
 
-from assignment_codeval.canvas_utils import get_course, connect_to_canvas
+from assignment_codeval.canvas_utils import get_course, connect_to_canvas, get_assignment
 from assignment_codeval.commons import error, debug
 
 HEX_DIGITS = "0123456789abcdefABCDEF"
 
 @click.command()
 @click.argument("course_name", metavar="COURSE")
+@click.argument("assignment_name", metavar="ASSIGNMENT")
+@click.option("--all-repos", is_flag=True, help="download all repositories, even if they don't have a valid commit hash")
+@click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
 @click.option("--github-field", help="GitHub field name in canvas profile", default="github", show_default=True)
-def github_setup_repo(course_name, github_field):
+def github_setup_repo(course_name, assignment_name, target_dir, github_field, all_repos):
     """
     Connect to a GitHub repository for a given course and assignment.
 
     COURSE can be a unique substring of the actual course name.
 
-    GITHUB_PREFIX is the prefix of the GitHub repository name, it should have a form similar to:
-
-    git@github.com:<gh_classroom_account>/<gh_classroom_assignment>
     """
     canvas, user = connect_to_canvas()
     parser = ConfigParser()
@@ -29,6 +29,9 @@ def github_setup_repo(course_name, github_field):
     parser.read(config_file)
     parser.config_file = config_file
     course = get_course(canvas, course_name, True)
+    assignment = get_assignment(course, assignment_name)
+    submission_dir = os.path.join(target_dir, course.name, assignment.name)
+    os.makedirs(submission_dir, exist_ok=True)
 
     gh_key = course.name.replace(":", "").replace("=", "")
     if 'GITHUB' not in parser or gh_key not in parser['GITHUB']:
@@ -40,14 +43,20 @@ def github_setup_repo(course_name, github_field):
     users = course.get_users(include=["enrollments"])
     for user in users:
         ssid = user.login_id
-        os.makedirs(ssid, exist_ok=True)
-        result_path = f"{ssid}/gh_result.txt"
-        success_path = f"{ssid}/gh_success.txt"
-        content_path = f"{ssid}/content.txt"
+        ssid_dir = os.path.join(submission_dir, ssid)
+        click.echo(f"\rChecking {ssid_dir}      ", nl='')
+        if not all_repos and not os.path.exists(ssid_dir):
+            continue
+        click.echo(f"\rFinding repo for {ssid_dir}      ", nl='')
+
+        os.makedirs(ssid_dir, exist_ok=True)
+        result_path = f"{ssid_dir}/gh_result.txt"
+        success_path = f"{ssid_dir}/gh_success.txt"
+        content_path = f"{ssid_dir}/content.txt"
         with open(result_path, "w") as fd:
             content = None
             if os.path.exists(content_path):
-                with open(f"{ssid}/context.txt", "w") as cfd:
+                with open(f"{ssid_dir}/content.txt", "r") as cfd:
                     content = re.sub(r"<.*?>", "", cfd.readline().strip()).strip()
             if not content or not all(c in HEX_DIGITS for c in content):
                 print(f"❌ an invalid git digest was found: {content}", file=fd)
@@ -66,8 +75,9 @@ def github_setup_repo(course_name, github_field):
             gh_url = gh_links[0]
             gh_id = gh_url.rstrip('/').rsplit('/', 1)[-1]
             repo_url = f"{gh_repo_prefix}-{gh_id}.git"
-            repo_path = os.path.join(ssid, "repo")
-            if os.path.exists(f'{ssid}/repo'):
+            repo_path = os.path.join(ssid_dir, "repo")
+            click.echo(f"\rCloning repo for {gh_id} to {ssid_dir}      ", nl='')
+            if os.path.exists(repo_path):
                 print(f"pulling {repo_url}", file=fd)
                 rc = subprocess.run(['git', 'pull'], cwd=repo_path, stdout=fd, stderr=subprocess.STDOUT)
             else:
@@ -76,6 +86,7 @@ def github_setup_repo(course_name, github_field):
             if rc.returncode != 0:
                 error(f"❌ error {rc.returncode} connecting to github repo for {ssid} using {repo_url}")
                 continue
+            subprocess.run(['git', 'config', 'advice.detachedHead', 'false'], cwd=repo_path)
             rc = subprocess.run(['git', 'checkout', content], cwd=repo_path, stdout=fd, stderr=subprocess.STDOUT)
             if rc.returncode != 0:
                 print(f"❌ error {rc.returncode} checking out {content}", file=fd)
