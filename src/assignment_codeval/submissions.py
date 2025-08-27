@@ -6,6 +6,7 @@ import tempfile
 from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
+from zipfile import ZipFile
 
 import click
 import requests
@@ -78,15 +79,32 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             continue
 
         assignment_name = match.group(2)
+        repo_dir = os.path.abspath(os.path.join(dirpath, "repo"))
+
         codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
         if not os.path.exists(codeval_file):
             warn(f"no codeval file found for {assignment_name} in {codeval_dir}")
             continue
 
+        # get the zipfiles (Z tag) and timeout (CTO tag)
+        compile_timeout = 20
+        with open(codeval_file, "r") as fd:
+            for line in fd:
+                line = line.strip()
+                if line.startswith("CTO"):
+                    try:
+                        compile_timeout = int(line.split(None, 1)[1])
+                    except Exception:
+                        warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
+                if line.startswith("Z"):
+                    zipfile = line.split(None, 1)[1]
+                    # unzip into the repo directory
+                    with ZipFile(zipfile) as zf:
+                        zf.extractall(repo_dir)
 
         command = raw_command.replace("EVALUATE", "assignment_codeval evaluate codeval.txt")
 
-        command = command.replace("SUBMISSIONS", os.path.abspath(os.path.join(dirpath, "repo")))
+        command = command.replace("SUBMISSIONS", repo_dir)
         debug(f"command to execute: {command}")
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         try:

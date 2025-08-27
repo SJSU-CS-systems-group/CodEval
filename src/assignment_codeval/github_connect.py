@@ -45,6 +45,7 @@ def github_setup_repo(course_name, github_field):
         success_path = f"{ssid}/gh_success.txt"
         content_path = f"{ssid}/content.txt"
         with open(result_path, "w") as fd:
+            content = None
             if os.path.exists(content_path):
                 with open(f"{ssid}/context.txt", "w") as cfd:
                     content = re.sub(r"<.*?>", "", cfd.readline().strip()).strip()
