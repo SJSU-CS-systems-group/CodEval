@@ -657,10 +657,6 @@ def run_evaluation(codeval_file):
             tag = parts[0]
             if tag == "T" or tag == "HT":
                 test_case_total += 1
-            elif tag == "Z":
-                filename=parts[1].strip()
-                file = os.path.join(os.path.dirname(codeval_file), filename) if not filename.startswith("/") else filename
-                unzip(file, ".")
 
     # Read testcases
     with open(codeval_file, "r") as infile:

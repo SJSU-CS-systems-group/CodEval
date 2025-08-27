@@ -107,8 +107,8 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 if line.startswith("Z"):
                     zipfile = line.split(None, 1)[1]
                     # unzip into the repo directory
-                    with ZipFile(zipfile) as zf:
-                        zf.extractall(repo_dir)
+                    with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
+                        zf.extractall(os.path.join(repo_dir, assignment_working_dir))
         if not move_to_next_submission:
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
 
