@@ -1,6 +1,13 @@
 #!/bin/bash
 
+PATH=$PATH:~/.local/bin
+
 set -e
+
+# use flock so that we don't have overlapping builds
+exec 200<> ~/deploy.lock
+flock -w 2 200
+
 
 if [ $# -ne 2 ]
 then
