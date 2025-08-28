@@ -6,7 +6,7 @@ from configparser import ConfigParser
 import click
 
 from assignment_codeval.canvas_utils import get_course, connect_to_canvas, get_assignment
-from assignment_codeval.commons import error, debug
+from assignment_codeval.commons import error, debug, info
 
 HEX_DIGITS = "0123456789abcdefABCDEF"
 
@@ -44,20 +44,25 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
     for user in users:
         ssid = user.login_id
         ssid_dir = os.path.join(submission_dir, ssid)
-        click.echo(f"\rChecking {ssid_dir}      ", nl='')
+        click.echo(f"Checking {ssid_dir}")
         if not all_repos and not os.path.exists(ssid_dir):
             continue
-        click.echo(f"\rFinding repo for {ssid_dir}      ", nl='')
+        click.echo(f"Finding repo for {ssid_dir}")
 
         os.makedirs(ssid_dir, exist_ok=True)
-        result_path = f"{ssid_dir}/gh_result.txt"
+        result_path = f"{ssid_dir}/comments.txt"
         success_path = f"{ssid_dir}/gh_success.txt"
         content_path = f"{ssid_dir}/content.txt"
+        repo_path = os.path.join(ssid_dir, "repo")
+        if os.path.exists(repo_path):
+            info(f"skipping {ssid_dir}, repo already exists at {repo_path}")
+            continue
         with open(result_path, "w") as fd:
             content = None
             if os.path.exists(content_path):
                 with open(f"{ssid_dir}/content.txt", "r") as cfd:
                     content = re.sub(r"<.*?>", "", cfd.readline().strip()).strip()
+                    content = re.sub(r"&[a-z]+;", "", content).strip()
             if not content or not all(c in HEX_DIGITS for c in content):
                 print(f"❌ an invalid git digest was found: {content}", file=fd)
                 continue
@@ -75,14 +80,9 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
             gh_url = gh_links[0]
             gh_id = gh_url.rstrip('/').rsplit('/', 1)[-1]
             repo_url = f"{gh_repo_prefix}-{gh_id}.git"
-            repo_path = os.path.join(ssid_dir, "repo")
-            click.echo(f"\rCloning repo for {gh_id} to {ssid_dir}      ", nl='')
-            if os.path.exists(repo_path):
-                print(f"pulling {repo_url}", file=fd)
-                rc = subprocess.run(['git', 'pull'], cwd=repo_path, stdout=fd, stderr=subprocess.STDOUT)
-            else:
-                print(f"cloning {repo_url}", file=fd)
-                rc = subprocess.run(['git', 'clone', repo_url, repo_path], stdout=fd, stderr=subprocess.STDOUT)
+            click.echo(f"Cloning repo for {gh_id} to {ssid_dir}")
+            print(f"cloning {repo_url}", file=fd)
+            rc = subprocess.run(['git', 'clone', repo_url, repo_path], stdout=fd, stderr=subprocess.STDOUT)
             if rc.returncode != 0:
                 error(f"❌ error {rc.returncode} connecting to github repo for {ssid} using {repo_url}")
                 continue

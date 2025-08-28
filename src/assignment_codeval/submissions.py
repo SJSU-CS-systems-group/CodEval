@@ -78,6 +78,8 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         if not match:
             continue
 
+        info(f"processing {dirpath}")
+
         assignment_name = match.group(2)
         repo_dir = os.path.abspath(os.path.join(dirpath, "repo"))
 
@@ -115,10 +117,10 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             with TemporaryDirectory("cedir", dir="/var/tmp", delete=False) as link_dir:
                 repo_link = os.path.join(link_dir, "submissions")
                 os.symlink(repo_dir, repo_link)
-                submissions_dir = os.path.join(repo_link, assignment_working_dir)
-                shutil.copy(codeval_file, os.path.join(submissions_dir, "codeval.txt"))
+                full_assignment_working_dir = os.path.join(repo_link, assignment_working_dir)
+                shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
 
-                command = command.replace("SUBMISSIONS", submissions_dir)
+                command = command.replace("SUBMISSIONS", full_assignment_working_dir)
                 info(f"command to execute: {command}")
                 p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 try:
@@ -127,19 +129,29 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     p.kill()
                     out, err = p.communicate()
                     out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+                except Exception as e:
+                    error(f"exception {e} running evaluation for {dirpath}")
+                    p.kill()
+                    out, err = p.communicate()
+                    out += bytes(f"\nFAILED with exception {e}\n", encoding='utf-8')
+                finally:
+                    info("finished executing docker")
 
+        info("writing results")
         with open(f"{dirpath}/comments.txt", "wb") as fd:
             fd.write(out)
+        info("continuing")
 
 
 @click.command()
 @click.argument("course_name", metavar="COURSE")
 @click.argument("assignment_name", metavar="ASSIGNMENT")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
-@click.option("--only-uncommented", is_flag=True, help="only download submissions without codeval comments since last submission")
+@click.option("--include-commented", is_flag=True, help="even download submissionsthat already have codeval comments since last submission")
+@click.option("--uncommented_for", help="only download submission where the last comment is more than these minutes ago", default=0, show_default=True)
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
-def download_submissions(course_name, assignment_name, target_dir, only_uncommented, codeval_prefix, include_empty):
+def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty, uncommented_for):
     """
     Download submissions for a given assignment in a course from Canvas.
 
@@ -162,8 +174,14 @@ def download_submissions(course_name, assignment_name, target_dir, only_uncommen
             last_comment_date = submission_comments[-1]
         else:
             last_comment_date = None
-        if only_uncommented and last_comment_date and submission.submitted_at <= last_comment_date:
+        if not include_commented and last_comment_date and submission.submitted_at <= last_comment_date:
             continue
+
+        if uncommented_for > 0 and last_comment_date:
+            last_comment_dt = datetime.strptime(last_comment_date, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+            delta = datetime.now(timezone.utc) - last_comment_dt
+            if delta.total_seconds() < uncommented_for * 60:
+                continue
 
         student_id = submission.user['login_id']
         student_submission_dir = os.path.join(submission_dir, student_id)
