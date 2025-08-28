@@ -12,7 +12,7 @@ COURSE="$1"
 ASSIGNMENT="$2"
 
 setfacl -d -m g::rwX .
-assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT"
+assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT" --uncommented_for 60
 assignment-codeval github-setup-repo "$COURSE" "$ASSIGNMENT"
 assignment-codeval evaluate-submissions ~/codeval
 assignment-codeval upload-submission-comments submissions
