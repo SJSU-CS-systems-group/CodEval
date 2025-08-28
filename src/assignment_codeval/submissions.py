@@ -114,7 +114,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         if not move_to_next_submission:
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
 
-            with TemporaryDirectory("cedir", dir="/var/tmp", delete=False) as link_dir:
+            with TemporaryDirectory("cedir", dir="/var/tmp") as link_dir:
                 repo_link = os.path.join(link_dir, "submissions")
                 os.symlink(repo_dir, repo_link)
                 full_assignment_working_dir = os.path.join(repo_link, assignment_working_dir)
