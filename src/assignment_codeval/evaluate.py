@@ -145,7 +145,6 @@ def run_command(command):
     check_test()
 
     # Execute without surpressing output
-    print(command)
     command_popen = subprocess.Popen(command, shell=True)
     command_popen.communicate()
 
@@ -323,7 +322,7 @@ def check_error(error_output):
         None
     """
     with open("expectederror", "a") as outfile:
-        outfile.write(error_output)
+        outfile.write(error_output + "\n")
 
 
 def hint(hints):
@@ -581,8 +580,6 @@ def check_test():
             passed = False
             break
 
-    test_args = ""
-
     # Pass fail handling
     if passed:
         global num_passed
@@ -621,6 +618,8 @@ def check_test():
 
 
 def cleanup():
+    global test_args
+    test_args = ""
     files = [
         "compilelog",
         "difflog",
@@ -644,6 +643,9 @@ def cleanup():
 @click.command()
 @click.argument("codeval_file", type=click.Path(exists=True))
 def run_evaluation(codeval_file):
+    """
+    This command should be run in the docker container, so it is not usually run directly.
+    """
     start_time_seconds = time.time()
 
     setup()
@@ -655,12 +657,8 @@ def run_evaluation(codeval_file):
         for testcase in testcases:
             parts = testcase.split(" ", 1)
             tag = parts[0]
-            if tag == "T" or tag == "HT":
+            if tag == "T" or tag == "HT" or tag == "TCMD":
                 test_case_total += 1
-            elif tag == "Z":
-                filename=parts[1].strip()
-                file = os.path.join(os.path.dirname(codeval_file), filename) if not filename.startswith("/") else filename
-                unzip(file, ".")
 
     # Read testcases
     with open(codeval_file, "r") as infile:

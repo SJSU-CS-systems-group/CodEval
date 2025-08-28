@@ -1,13 +1,17 @@
 import os
 import re
-import sys
+import shutil
+import subprocess
+from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
+from tempfile import TemporaryFile, TemporaryDirectory
+from zipfile import ZipFile
 
 import click
 import requests
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course
+from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_assignment
 from assignment_codeval.commons import debug, error, info, warn
 
 
@@ -53,13 +57,101 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
 
 
 @click.command()
+@click.argument('codeval_dir', metavar="CODEVAL_DIR")
+@click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID", default='./submissions', show_default=True)
+def evaluate_submissions(codeval_dir, submissions_dir):
+    """
+    Evaluate submissions stored in the form COURSE/ASSIGNMENT/STUDENT_ID.
+
+    CODEVAL_DIR specifies a directory that has the codeval files named after the assignment with the .codeval suffix.
+    """
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    parser.config_file = config_file
+
+    raw_command = parser["RUN"]["command"]
+    if not raw_command:
+        warn(f"commands section under [RUN] in {parser.config_file} is empty")
+    for dirpath, dirnames, filenames in os.walk(submissions_dir):
+        match = re.match(fr'^{submissions_dir}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
+        if not match:
+            continue
+
+        info(f"processing {dirpath}")
+
+        assignment_name = match.group(2)
+        repo_dir = os.path.abspath(os.path.join(dirpath, "repo"))
+
+        codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
+        if not os.path.exists(codeval_file):
+            warn(f"no codeval file found for {assignment_name} in {codeval_file}")
+            continue
+
+        # get the zipfiles (Z tag) and timeout (CTO tag)
+        compile_timeout = 20
+        assignment_working_dir = "."
+        move_to_next_submission = False
+        with open(codeval_file, "r") as fd:
+            for line in fd:
+                line = line.strip()
+                if line.startswith("CTO"):
+                    try:
+                        compile_timeout = int(line.split(None, 1)[1])
+                    except Exception:
+                        warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
+                if line.startswith("CD"):
+                    assignment_working_dir = os.path.normpath(os.path.join(assignment_working_dir, line.split()[1].strip()))
+                    if not os.path.exists(os.path.join(repo_dir, assignment_working_dir)):
+                        out = f"{assignment_working_dir} does not exist\n".encode('utf-8')
+                        move_to_next_submission = True
+                        break
+                if line.startswith("Z"):
+                    zipfile = line.split(None, 1)[1]
+                    # unzip into the repo directory
+                    with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
+                        zf.extractall(os.path.join(repo_dir, assignment_working_dir))
+        if not move_to_next_submission:
+            command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
+
+            with TemporaryDirectory("cedir", dir="/var/tmp", delete=False) as link_dir:
+                repo_link = os.path.join(link_dir, "submissions")
+                os.symlink(repo_dir, repo_link)
+                full_assignment_working_dir = os.path.join(repo_link, assignment_working_dir)
+                shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
+
+                command = command.replace("SUBMISSIONS", full_assignment_working_dir)
+                info(f"command to execute: {command}")
+                p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                try:
+                    out, err = p.communicate(timeout=compile_timeout)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+                    out, err = p.communicate()
+                    out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+                except Exception as e:
+                    error(f"exception {e} running evaluation for {dirpath}")
+                    p.kill()
+                    out, err = p.communicate()
+                    out += bytes(f"\nFAILED with exception {e}\n", encoding='utf-8')
+                finally:
+                    info("finished executing docker")
+
+        info("writing results")
+        with open(f"{dirpath}/comments.txt", "wb") as fd:
+            fd.write(out)
+        info("continuing")
+
+
+@click.command()
 @click.argument("course_name", metavar="COURSE")
 @click.argument("assignment_name", metavar="ASSIGNMENT")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
-@click.option("--only-uncommented", is_flag=True, help="only download submissions without codeval comments since last submission")
+@click.option("--include-commented", is_flag=True, help="even download submissionsthat already have codeval comments since last submission")
+@click.option("--uncommented_for", help="only download submission where the last comment is more than these minutes ago", default=0, show_default=True)
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
-def download_submissions(course_name, assignment_name, target_dir, only_uncommented, codeval_prefix, include_empty):
+def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty, uncommented_for):
     """
     Download submissions for a given assignment in a course from Canvas.
 
@@ -82,8 +174,14 @@ def download_submissions(course_name, assignment_name, target_dir, only_uncommen
             last_comment_date = submission_comments[-1]
         else:
             last_comment_date = None
-        if only_uncommented and last_comment_date and submission.submitted_at <= last_comment_date:
+        if not include_commented and last_comment_date and submission.submitted_at <= last_comment_date:
             continue
+
+        if uncommented_for > 0 and last_comment_date:
+            last_comment_dt = datetime.strptime(last_comment_date, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+            delta = datetime.now(timezone.utc) - last_comment_dt
+            if delta.total_seconds() < uncommented_for * 60:
+                continue
 
         student_id = submission.user['login_id']
         student_submission_dir = os.path.join(submission_dir, student_id)
@@ -123,27 +221,6 @@ last_comment={last_comment_date}""", file=fd)
             debug(f"Downloaded submission for student {student_id} to {filepath}")
 
     return submission_dir
-
-
-@cache
-def get_assignment(course, assignment_name):
-    assignments = [a for a in course.get_assignments() if assignment_name.lower() in a.name.lower()]
-    if len(assignments) == 0:
-        error(f'no assignments found that contain {assignment_name}. options are:')
-        for a in course.get_assignments():
-            error(fr"    {a.name}")
-        sys.exit(2)
-    elif len(assignments) > 1:
-        strict_name_assignments = [a for a in assignments if a.name == assignment_name]
-        if len(strict_name_assignments) == 1:
-            assignments = strict_name_assignments
-        else:
-            error(f"multiple assignments found for {assignment_name}: {[a.name for a in assignments]}")
-            for a in assignments:
-                error(f"    {a.name}")
-            sys.exit(2)
-    assignment = assignments[0]
-    return assignment
 
 
 @cache
