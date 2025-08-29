@@ -102,8 +102,8 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
                 if line.startswith("CD"):
                     assignment_working_dir = os.path.normpath(os.path.join(assignment_working_dir, line.split()[1].strip()))
-                    if not os.path.exists(os.path.join(repo_dir, assignment_working_dir)):
-                        out = f"{assignment_working_dir} does not exist\n".encode('utf-8')
+                    if not os.path.isdir(os.path.join(repo_dir, assignment_working_dir)):
+                        out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
                         move_to_next_submission = True
                         break
                 if line.startswith("Z"):

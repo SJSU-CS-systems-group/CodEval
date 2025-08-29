@@ -8,6 +8,11 @@ set -e
 exec 200<> ~/deploy.lock
 flock -w 2 200
 
+if [ -d submissions ]
+then
+    echo "submissions directory exists. exiting."
+    exit 2
+fi
 
 if [ $# -ne 2 ]
 then
@@ -18,9 +23,10 @@ fi
 COURSE="$1"
 ASSIGNMENT="$2"
 
-setfacl -d -m g::rwX .
+trap 'rm -rf submissions' EXIT
+
+setfacl -d -m u:$(whoami):rwX .
 assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT" --uncommented_for 60
 assignment-codeval github-setup-repo "$COURSE" "$ASSIGNMENT"
 assignment-codeval evaluate-submissions ~/codeval
 assignment-codeval upload-submission-comments submissions
-rm -rf submissions

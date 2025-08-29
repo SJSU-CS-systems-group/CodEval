@@ -29,7 +29,7 @@ def set_config(show_debug, dry_run, force, copy_tmpdir):
 
 
 def _now():
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
 def debug(message):
