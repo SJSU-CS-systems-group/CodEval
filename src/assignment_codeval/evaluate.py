@@ -209,8 +209,8 @@ def test_case(test_case_command):
     check_test()
 
     # Clear hint
-    global hint
-    hint = ""
+    global test_case_hint
+    test_case_hint= ""
 
     # Set new test case command
     global test_args
@@ -237,8 +237,8 @@ def test_case_hidden(test_case_command):
     check_test()
 
     # Clear hint
-    global hint
-    hint = ""
+    global test_case_hint
+    test_case_hint = ""
 
     # Set new test case command
     global test_args
@@ -593,11 +593,11 @@ def check_test():
         # Hidden test case handling
         if test_case_hidden:
             print("    Test Case is Hidden")
-            if hint:
-                print(f"HINT: {hint}")
+            if test_case_hint:
+                print(f"HINT: {test_case_hint}")
         else:
-            if hint:
-                print(f"HINT: {hint}")
+            if test_case_hint:
+                print(f"HINT: {test_case_hint}")
 
             # Cleanup
             print(f"    Command ran: {test_args}")
