@@ -190,12 +190,14 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
                 continue
 
         student_id = submission.user['login_id']
+        student_name = submission.user['name']
         student_submission_dir = os.path.join(submission_dir, student_id)
         os.makedirs(student_submission_dir, exist_ok=True)
 
         metapath = os.path.join(student_submission_dir, "metadata.txt")
         with open(metapath, "w") as fd:
             print(f"""id={student_id}
+name={student_name}
 course={course.name}
 assignment={assignment.name}
 attempt={submission.attempt}
