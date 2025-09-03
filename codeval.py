@@ -12,7 +12,7 @@ from distributed import run_distributed_tests, \
     mark_submission_as_inactive_if_present
 from assignment_codeval.file_utils import copy_files_to_submission_dir, \
     download_attachment, set_acls, unzip
-import convertMD2Html
+from assignment_codeval import convertMD2Html
 
 CODEVAL_FOLDER = "course files/CodEval"
 CODEVAL_SUFFIX = ".codeval"
