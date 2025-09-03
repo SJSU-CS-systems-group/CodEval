@@ -5,7 +5,7 @@ import subprocess
 from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
-from tempfile import TemporaryFile, TemporaryDirectory
+from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
 import click
@@ -58,7 +58,8 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
 
 @click.command()
 @click.argument('codeval_dir', metavar="CODEVAL_DIR")
-@click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID", default='./submissions', show_default=True)
+@click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID",
+              default='./submissions', show_default=True)
 def evaluate_submissions(codeval_dir, submissions_dir):
     """
     Evaluate submissions stored in the form COURSE/ASSIGNMENT/STUDENT_ID.
@@ -101,7 +102,8 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     except Exception:
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
                 if line.startswith("CD"):
-                    assignment_working_dir = os.path.normpath(os.path.join(assignment_working_dir, line.split()[1].strip()))
+                    assignment_working_dir = os.path.normpath(
+                        os.path.join(assignment_working_dir, line.split()[1].strip()))
                     if not os.path.isdir(os.path.join(repo_dir, assignment_working_dir)):
                         out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
                         move_to_next_submission = True
@@ -147,11 +149,15 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 @click.argument("course_name", metavar="COURSE")
 @click.argument("assignment_name", metavar="ASSIGNMENT")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
-@click.option("--include-commented", is_flag=True, help="even download submissionsthat already have codeval comments since last submission")
-@click.option("--uncommented_for", help="only download submission where the last comment is more than these minutes ago", default=0, show_default=True)
+@click.option("--include-commented", is_flag=True,
+              help="even download submissionsthat already have codeval comments since last submission")
+@click.option("--uncommented_for",
+              help="only download submission where the last comment is more than these minutes ago", default=0,
+              show_default=True)
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
-def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty, uncommented_for):
+def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty,
+                         uncommented_for):
     """
     Download submissions for a given assignment in a course from Canvas.
 
@@ -174,7 +180,7 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
             last_comment_date = submission_comments[-1]
         else:
             last_comment_date = None
-        if not include_commented and last_comment_date and submission.submitted_at <= last_comment_date:
+        if not include_commented and last_comment_date and submission.submitted_at and submission.submitted_at <= last_comment_date:
             continue
 
         if uncommented_for > 0 and last_comment_date:
