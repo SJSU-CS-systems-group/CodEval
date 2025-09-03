@@ -167,7 +167,7 @@ DISCSN_URL
 
 EXMPLS <no_of_test_cases>
 
-URL_OF_HW "file_name"
+FILE[file_name]
 
 ### MODIFICATIONS REQUIRED IN THE SPECIFICATION FILE.
 1) Start the specification file with the tag CRT_HW START followed by a space followed by the name of assignment.
@@ -190,12 +190,13 @@ URL_OF_HW "file_name"
 	1) In order to add hyperlink to a file the markdown format is as follows:
 	   [file_name_to_be_displayed](Url_of_the_file)
 	   Here in the parenthesis where the Url is required,insert the tag
-	   URL_OF_HW followed by space followed by the file name of the file required to be linked in double quotes.
-	   For ex: URL_OF_HW "file name.extension"
-	   Note: The file should be present in the Codeval folder.
+	   FILE[name of file].
+	   For ex: FILE[file_name.extension]
+       If the file is not already in the Codeval folder, it will be extracted from a zip file in the
+       CodEval spec and uploaded automatically.
 	   
 ### UPLOAD THE REQUIRED FILES IN CODEVAL FOLDER IN FILES SECTION.
-1) Create a folder called `assignmentFiles` which should conatin all the necessary files including
+1) Create a folder called `assignmentFiles` which should contain all the necessary files including
 	the specification file.
 	   
 ### EXAMPLE OF THE SPECIFICATION FILE.	
@@ -220,4 +221,5 @@ URL_OF_HW "file_name"
 	CRT_HW END  
 
 	C cc -o bigbag --std=gnu11 bigbag.c
+
 
