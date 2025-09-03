@@ -171,11 +171,12 @@ def run_command_noerror(command):
 
     if command_popen.returncode:
         print("FAILED")
-        for file in os.listdir("evaluationLogs"):
-            with open(file, "r") as infile:
-                file_lines = infile.readlines()
-            # Print entire file
-            print("\n".join(file_lines))
+        if os.path.exists("evaluationLogs"):
+            for file in os.listdir("evaluationLogs"):
+                with open(file, "r") as infile:
+                    file_lines = infile.readlines()
+                # Print entire file
+                print("\n".join(file_lines))
 
         # Exit entire program with error
         sys.exit(1)
@@ -361,7 +362,7 @@ def exit_code(test_case_exit_code):
         None
     """
     global expected_exit_code
-    expected_exit_code = float(test_case_exit_code)
+    expected_exit_code = int(test_case_exit_code)
 
 
 def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
@@ -601,12 +602,13 @@ def check_test():
 
             # Cleanup
             print(f"    Command ran: {test_args}")
-            for file in os.listdir("evaluationLogs"):
-                with open("evaluationLogs/" + file, "r") as infile:
-                    file_lines = infile.readlines()
+            if os.path.exists("evaluationLogs"):
+                for file in os.listdir("evaluationLogs"):
+                    with open("evaluationLogs/" + file, "r") as infile:
+                        file_lines = infile.readlines()
 
-                # Print entire file
-                print("".join(file_lines))
+                    # Print entire file
+                    print("".join(file_lines))
 
         cleanup()
 
