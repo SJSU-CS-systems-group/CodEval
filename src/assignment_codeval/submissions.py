@@ -189,7 +189,7 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
             if delta.total_seconds() < uncommented_for * 60:
                 continue
 
-        student_id = submission.user['login_id']
+        student_id = str(submission.user_id)
         student_name = submission.user['name']
         student_submission_dir = os.path.join(submission_dir, student_id)
         os.makedirs(student_submission_dir, exist_ok=True)
@@ -235,6 +235,6 @@ last_comment={last_comment_date}""", file=fd)
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
     for submission in assignment.get_submissions(include=["user"]):
-        student_id = submission.user['login_id']
+        student_id = str(submission.user_id)
         submissions_by_id[student_id] = submission
     return submissions_by_id

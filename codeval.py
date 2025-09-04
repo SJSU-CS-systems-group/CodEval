@@ -75,7 +75,7 @@ class CanvasHandler:
 
     def get_courses(self, name: str, is_active=True, is_finished=False):
         ''' find the courses based on partial match '''
-        courses = self.canvas.get_courses(enrollment_type="teacher")
+        courses = self.canvas.get_courses()
         now = datetime.datetime.now(datetime.timezone.utc)
         course_list = []
         for c in courses:

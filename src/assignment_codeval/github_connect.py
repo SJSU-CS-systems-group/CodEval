@@ -42,7 +42,7 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
 
     users = course.get_users(include=["enrollments"])
     for user in users:
-        ssid = user.login_id
+        ssid = str(user.id)
         ssid_dir = os.path.join(submission_dir, ssid)
         click.echo(f"Checking {ssid_dir}")
         if not all_repos and not os.path.exists(ssid_dir):

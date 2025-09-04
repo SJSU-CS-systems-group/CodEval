@@ -1,8 +1,8 @@
 import datetime
 import sys
+from configparser import ConfigParser
 from functools import cache
 from typing import NamedTuple
-from configparser import ConfigParser
 
 import click
 from canvasapi import Canvas
@@ -56,9 +56,20 @@ def get_course(canvas, name, is_active=True):
     return course_list[0]
 
 
+def is_teacher(course):
+    if hasattr(course, "enrollments"):
+        for e in course.enrollments:
+            if 'role' not in e:
+                continue
+            type = e['role']
+            if type == 'TeacherEnrollment' or type == 'TaEnrollment':
+                return True
+    return False
+
+
 def get_courses(canvas, name: str, is_active=True, is_finished=False):
     ''' find the courses based on partial match '''
-    courses = canvas.get_courses(enrollment_type="teacher")
+    courses = [c for c in canvas.get_courses() if is_teacher(c)]
     now = datetime.datetime.now(datetime.timezone.utc)
     course_list = []
     for c in courses:
