@@ -156,8 +156,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
               show_default=True)
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
+@click.option("--for-name", help="only download submissions for this student name")
 def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty,
-                         uncommented_for):
+                         uncommented_for, for_name):
     """
     Download submissions for a given assignment in a course from Canvas.
 
@@ -173,6 +174,13 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
         if not submission.attempt and not include_empty:
             continue
+
+        student_id = str(submission.user_id)
+        student_name = submission.user['name']
+
+        if for_name and for_name not in student_name:
+            continue
+
         submission_comments = [c['created_at'] for c in submission.submission_comments if
                                'comment' in c and c['comment'].startswith(codeval_prefix)]
         submission_comments.sort()
@@ -189,8 +197,6 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
             if delta.total_seconds() < uncommented_for * 60:
                 continue
 
-        student_id = str(submission.user_id)
-        student_name = submission.user['name']
         student_submission_dir = os.path.join(submission_dir, student_id)
         os.makedirs(student_submission_dir, exist_ok=True)
 
