@@ -9,8 +9,9 @@ from assignment_codeval.commons import debug, error
 
 
 def download_attachment(directory, attachment):
-    curPath = os.getcwd()
-    os.chdir(os.path.join(curPath, directory))
+    if not directory.startswith('/'):
+        curPath = os.getcwd()
+        directory = os.path.join(curPath, directory)
 
     fname = attachment['display_name']
     prefix = os.path.splitext(fname)[0]
@@ -19,11 +20,10 @@ def download_attachment(directory, attachment):
     with requests.get(durl) as response:
         if response.status_code != 200:
             error(f'error {response.status_code} fetching {durl}')
-        with open(f"{prefix}{suffix}", "wb") as fd:
+        with open(os.path.join(directory, f"{prefix}{suffix}"), "wb") as fd:
             for chunk in response.iter_content():
                 fd.write(chunk)
 
-    os.chdir(curPath)
     return os.path.join(directory, fname)
 
 

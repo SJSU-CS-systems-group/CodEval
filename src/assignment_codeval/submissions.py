@@ -217,20 +217,11 @@ last_comment={last_comment_date}""", file=fd)
                 fd.write(body)
             debug(f"Downloaded content for student {student_id} to {filepath}")
 
-        if hasattr(submission, "attachment"):
-            attachment = submission.attachment
-            fname = attachment['display_name']
-            prefix = os.path.splitext(fname)[0]
-            suffix = os.path.splitext(fname)[1]
-            durl = attachment['url']
-            filepath = os.path.join(student_submission_dir, f"{prefix}{suffix}")
-
-            with requests.get(durl) as response:
-                if response.status_code != 200:
-                    error(f'error {response.status_code} fetching {durl}')
-                with open(filepath, "wb") as fd:
-                    for chunk in response.iter_content():
-                        fd.write(chunk)
+        if hasattr(submission, "attachments"):
+            for attachment in submission.attachments:
+                fname = attachment.filename
+                filepath = os.path.join(student_submission_dir, fname)
+                attachment.download(filepath)
 
             debug(f"Downloaded submission for student {student_id} to {filepath}")
 
