@@ -112,7 +112,14 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     zipfile = line.split(None, 1)[1]
                     # unzip into the repo directory
                     with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
-                        zf.extractall(os.path.join(repo_dir, assignment_working_dir))
+                        for f in zf.infolist():
+                            dest_dir = os.path.join(repo_dir, assignment_working_dir)
+                            zf.extract(f, dest_dir)
+                            if not f.is_dir():
+                                perms = f.external_attr >> 16
+                                if perms:
+                                    os.chmod(os.path.join(dest_dir, f.filename), perms)
+
         if not move_to_next_submission:
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
 
