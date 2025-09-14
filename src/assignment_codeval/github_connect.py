@@ -2,21 +2,27 @@ import os.path
 import re
 import subprocess
 from configparser import ConfigParser
+from time import sleep
 
 import click
 
 from assignment_codeval.canvas_utils import get_course, connect_to_canvas, get_assignment
-from assignment_codeval.commons import error, debug, info
+from assignment_codeval.commons import error, info
 
 HEX_DIGITS = "0123456789abcdefABCDEF"
+
 
 @click.command()
 @click.argument("course_name", metavar="COURSE")
 @click.argument("assignment_name", metavar="ASSIGNMENT")
-@click.option("--all-repos", is_flag=True, help="download all repositories, even if they don't have a valid commit hash")
+@click.option("--all-repos", is_flag=True,
+              help="download all repositories, even if they don't have a valid commit hash")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
 @click.option("--github-field", help="GitHub field name in canvas profile", default="github", show_default=True)
-def github_setup_repo(course_name, assignment_name, target_dir, github_field, all_repos):
+@click.option("--clone-delay",
+              help="seconds to wait between cloning repos. github will sometimes return an error if you clone to fast.e",
+              default=1, show_default=True)
+def github_setup_repo(course_name, assignment_name, target_dir, github_field, all_repos, clone_delay):
     """
     Connect to a GitHub repository for a given course and assignment.
 
@@ -94,3 +100,4 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
             print(f"✅ successfully connected to {repo_url} and checked out {content}", file=fd)
             with open(success_path, "w") as sfd:
                 print(content, file=sfd)
+        sleep(clone_delay)
