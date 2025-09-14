@@ -532,7 +532,7 @@ def check_test():
     try:
         test_exec.communicate(timeout=timeout_val)
 
-    except TimeoutError:
+    except subprocess.TimeoutExpired:
         print(f"Took more than {timeout_val} seconds to run. FAIL")
         passed = False
 
@@ -649,6 +649,10 @@ def run_evaluation(codeval_file):
     This command should be run in the docker container, so it is not usually run directly.
     """
     start_time_seconds = time.time()
+
+    # turn off line buffering so that outputs don't get intermixed
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
 
     setup()
 
