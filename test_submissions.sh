@@ -30,3 +30,8 @@ assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT" --uncommented_fo
 assignment-codeval github-setup-repo "$COURSE" "$ASSIGNMENT"
 assignment-codeval evaluate-submissions ~/codeval
 assignment-codeval upload-submission-comments submissions
+
+if [[ -n $WATCHDOG_CMD ]]
+then
+    $WATCHDOG_CMD
+fi
