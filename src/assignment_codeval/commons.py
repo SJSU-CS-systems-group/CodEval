@@ -5,6 +5,10 @@ import time
 import dataclasses
 
 
+def despace(name):
+    return name.replace(" ", "_")
+
+
 @dataclasses.dataclass(init=True, repr=True, frozen=True)
 class _Config():
     """Global configuration object for the CLI"""

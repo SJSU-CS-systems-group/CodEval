@@ -8,7 +8,7 @@ import click
 from canvasapi import Canvas
 from canvasapi.current_user import CurrentUser
 
-from assignment_codeval.commons import error, info, errorWithException
+from assignment_codeval.commons import error, info, errorWithException, despace
 
 CanvasConnection = NamedTuple('CanvasConnection', [('canvas', Canvas), ('user', CurrentUser)])
 
@@ -69,6 +69,7 @@ def is_teacher(course):
 
 def get_courses(canvas, name: str, is_active=True, is_finished=False):
     ''' find the courses based on partial match '''
+    name = despace(name)
     courses = [c for c in canvas.get_courses() if is_teacher(c)]
     now = datetime.datetime.now(datetime.timezone.utc)
     course_list = []
@@ -79,7 +80,7 @@ def get_courses(canvas, name: str, is_active=True, is_finished=False):
             continue
         if is_finished and end < now:
             continue
-        if name in c.name:
+        if name in despace(c.name):
             c.start = start
             c.end = end
             course_list.append(c)
@@ -88,7 +89,8 @@ def get_courses(canvas, name: str, is_active=True, is_finished=False):
 
 @cache
 def get_assignment(course, assignment_name):
-    assignments = [a for a in course.get_assignments() if assignment_name.lower() in a.name.lower()]
+    assignment_name = despace(assignment_name)
+    assignments = [a for a in course.get_assignments() if assignment_name.lower() in despace(a.name).lower()]
     if len(assignments) == 0:
         error(f'no assignments found that contain {assignment_name}. options are:')
         for a in course.get_assignments():

@@ -12,7 +12,7 @@ import click
 import requests
 
 from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_assignment
-from assignment_codeval.commons import debug, error, info, warn
+from assignment_codeval.commons import debug, error, info, warn, despace
 
 
 @click.command()
@@ -82,7 +82,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         info(f"processing {dirpath}")
 
         assignment_name = match.group(2)
-        repo_dir = os.path.abspath(os.path.join(dirpath, "repo"))
+        submission_dir = os.path.abspath(os.path.join(dirpath, "submission"))
 
         codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
         if not os.path.exists(codeval_file):
@@ -104,16 +104,16 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 if line.startswith("CD"):
                     assignment_working_dir = os.path.normpath(
                         os.path.join(assignment_working_dir, line.split()[1].strip()))
-                    if not os.path.isdir(os.path.join(repo_dir, assignment_working_dir)):
+                    if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
                         out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
                         move_to_next_submission = True
                         break
                 if line.startswith("Z"):
                     zipfile = line.split(None, 1)[1]
-                    # unzip into the repo directory
+                    # unzip into the submission directory
                     with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
                         for f in zf.infolist():
-                            dest_dir = os.path.join(repo_dir, assignment_working_dir)
+                            dest_dir = os.path.join(submission_dir, assignment_working_dir)
                             zf.extract(f, dest_dir)
                             if not f.is_dir():
                                 perms = f.external_attr >> 16
@@ -124,9 +124,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
 
             with TemporaryDirectory("cedir", dir="/var/tmp") as link_dir:
-                repo_link = os.path.join(link_dir, "submissions")
-                os.symlink(repo_dir, repo_link)
-                full_assignment_working_dir = os.path.join(repo_link, assignment_working_dir)
+                submission_link = os.path.join(link_dir, "submissions")
+                os.symlink(submission_dir, submission_link)
+                full_assignment_working_dir = os.path.join(submission_link, assignment_working_dir)
                 shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
 
                 command = command.replace("SUBMISSIONS", full_assignment_working_dir)
@@ -175,7 +175,7 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
 
     course = get_course(canvas, course_name)
     assignment = get_assignment(course, assignment_name)
-    submission_dir = os.path.join(target_dir, course.name, assignment.name)
+    submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
 
     for submission in assignment.get_submissions(include=["submission_comments", "user"]):

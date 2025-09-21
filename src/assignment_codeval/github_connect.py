@@ -7,7 +7,7 @@ from time import sleep
 import click
 
 from assignment_codeval.canvas_utils import get_course, connect_to_canvas, get_assignment
-from assignment_codeval.commons import error, info
+from assignment_codeval.commons import error, info, despace
 
 HEX_DIGITS = "0123456789abcdefABCDEF"
 
@@ -36,7 +36,7 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
     parser.config_file = config_file
     course = get_course(canvas, course_name, True)
     assignment = get_assignment(course, assignment_name)
-    submission_dir = os.path.join(target_dir, course.name, assignment.name)
+    submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
 
     gh_key = course.name.replace(":", "").replace("=", "")
@@ -59,9 +59,9 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
         result_path = f"{ssid_dir}/comments.txt"
         success_path = f"{ssid_dir}/gh_success.txt"
         content_path = f"{ssid_dir}/content.txt"
-        repo_path = os.path.join(ssid_dir, "repo")
-        if os.path.exists(repo_path):
-            info(f"skipping {ssid_dir}, repo already exists at {repo_path}")
+        submission_path = os.path.join(ssid_dir, "submission")
+        if os.path.exists(submission_path):
+            info(f"skipping {ssid_dir}, repo already exists at {submission_path}")
             continue
         with open(result_path, "w") as fd:
             content = None
@@ -88,12 +88,12 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
             repo_url = f"{gh_repo_prefix}-{gh_id}.git"
             click.echo(f"Cloning repo for {gh_id} to {ssid_dir}")
             print(f"cloning {repo_url}", file=fd)
-            rc = subprocess.run(['git', 'clone', repo_url, repo_path], stdout=fd, stderr=subprocess.STDOUT)
+            rc = subprocess.run(['git', 'clone', repo_url, submission_path], stdout=fd, stderr=subprocess.STDOUT)
             if rc.returncode != 0:
                 error(f"❌ error {rc.returncode} connecting to github repo for {ssid} using {repo_url}")
                 continue
-            subprocess.run(['git', 'config', 'advice.detachedHead', 'false'], cwd=repo_path)
-            rc = subprocess.run(['git', 'checkout', content], cwd=repo_path, stdout=fd, stderr=subprocess.STDOUT)
+            subprocess.run(['git', 'config', 'advice.detachedHead', 'false'], cwd=submission_path)
+            rc = subprocess.run(['git', 'checkout', content], cwd=submission_path, stdout=fd, stderr=subprocess.STDOUT)
             if rc.returncode != 0:
                 print(f"❌ error {rc.returncode} checking out {content}", file=fd)
                 continue
