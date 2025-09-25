@@ -6,7 +6,9 @@ import dataclasses
 
 
 def despace(name):
-    return name.replace(" ", "_")
+    # we need to replace spaces with _ to work well with scripts
+    # we need to remove the : so that it doesn't mess up docker
+    return name.replace(" ", "_").replace(":","")
 
 
 @dataclasses.dataclass(init=True, repr=True, frozen=True)

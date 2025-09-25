@@ -46,10 +46,10 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                     with open(f"{dirpath}/comments.txt", "r") as fd:
                         comment = fd.read()
                         # nulls seem to be very problematic for canvas
-                        comment = comment.replace("\0", "\\0").strip()
+                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                            submission.edit(comment={'text_comment': f'{codeval_prefix} {comment}'})
+                            submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
                     with open(f"{dirpath}/comments.txt.sent", "w") as fd:
