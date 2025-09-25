@@ -3,6 +3,7 @@ RUN apt-get -y update && apt-get upgrade -y
 RUN apt-get -y install gcc valgrind
 RUN apt-get -y install openjdk-21-jdk
 RUN apt-get -y install gawk
+RUN apt-get -y install iproute2
 
 # Install maven 3.8.6 for compatibility with jdk 17
 RUN apt-get -y install wget
