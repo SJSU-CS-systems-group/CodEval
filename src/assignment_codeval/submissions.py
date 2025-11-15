@@ -40,6 +40,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                 if "comments.txt.sent" in filenames:
                     info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
                 else:
+                    #uploading html!
                     info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
@@ -50,10 +51,19 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
                             submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
+                            #if submission, upload url!
+                            #cavans api, comments[fileids[]]
+                            #before submission.edit, open file and do submission.upload_comment(fd)
+                            #put
+                            with open(f"{dirpath}/comments.txt", "w") as fd:
+                                #fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+                                submission.upload(fd)
+                            
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
                     with open(f"{dirpath}/comments.txt.sent", "w") as fd:
                         fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+
 
 
 @click.command()

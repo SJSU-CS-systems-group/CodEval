@@ -40,7 +40,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                 if "comments.txt.sent" in filenames:
                     info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
                 else:
-                    #formatting output to upload to canvas comments!
+                    #uploading 'comment' as a file to canvas comments section!
                     info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
@@ -51,6 +51,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                         #'comment' is the stuff to be uploaded
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
+                    
                             #from https://developerdocs.instructure.com/services/canvas/basics/file.file_uploads
                             #1
                             filename = "results.txt"
@@ -61,8 +62,9 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                             file = submission.upload_comment(filename)
 
                             #3
-                            submission.edit(comment={'file_ids': [file['id']]})
-                            
+                            submission.edit(comment={'file_ids': [file]})
+                            #upload to prev comment's url
+                  
                             # PREVIOUS CODE:submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
 
                         else:
@@ -217,7 +219,7 @@ def download_submissions(course_name, assignment_name, target_dir, include_comme
         if uncommented_for > 0 and last_comment_date:
             last_comment_dt = datetime.strptime(last_comment_date, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
             delta = datetime.now(timezone.utc) - last_comment_dt
-            if delta.total_seconds() < uncommented_for * 60:
+            if delta.total_seconds() < uncommented_for * 1:
                 continue
 
         student_submission_dir = os.path.join(submission_dir, student_id)
