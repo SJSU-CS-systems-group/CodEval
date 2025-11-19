@@ -50,14 +50,18 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                         comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                            submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
-                            #if submission, upload url!
-                            #cavans api, comments[fileids[]]
-                            #before submission.edit, open file and do submission.upload_comment(fd)
-                            #put
-                            with open(f"{dirpath}/comments.txt", "w") as fd:
-                                #fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
-                                submission.upload(fd)
+                            #from https://developerdocs.instructure.com/services/canvas/basics/file.file_uploads
+                            #1
+                            filename = "results.txt"
+                            with open(filename, "w") as f:
+                                f.write(comment)
+
+                            #2
+                            file = submission.upload_comment(filename)
+
+                            #3
+                            submission.edit(comment={'file_ids': [file]})
+                             # PREVIOUS CODE:submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
                             
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
