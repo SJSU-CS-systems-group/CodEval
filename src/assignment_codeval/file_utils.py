@@ -5,8 +5,20 @@ import subprocess
 
 import requests
 import zipfile
+import time
 from assignment_codeval.commons import debug, error
 
+def get_file_timestamps(directory):
+    timestamps = {}
+    for (root, dirs, files) in os.walk(directory):
+        for f in files:
+            
+    #return timestamps
+
+#def compare_file_timestamps(before, after):
+    #accessed_files = []
+    #modified_files = []
+    
 
 def download_attachment(directory, attachment):
     if not directory.startswith('/'):
