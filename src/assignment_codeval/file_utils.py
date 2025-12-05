@@ -12,8 +12,16 @@ def get_file_timestamps(directory):
     timestamps = {}
     for (root, dirs, files) in os.walk(directory):
         for f in files:
-            
-    #return timestamps
+            path = os.path.join(root, f)
+            try: 
+                stat = os.stat(path)
+                timestamps[path] = {
+                    "access": stat.st_atime,
+                    "modified": stat.st_mtime
+                }
+            except FileNotFoundError:
+                continue
+    return timestamps
 
 #def compare_file_timestamps(before, after):
     #accessed_files = []
