@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
-
 import click
 import requests
 
@@ -40,32 +39,33 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                 if "comments.txt.sent" in filenames:
                     info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
                 else:
-                    #uploading 'comment' as a file to canvas comments section!
+                    #uploads 'comments.txt' as an attachment to a new comment!
                     info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read()
-                        # nulls seem to be very problematic for canvas
-                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                                 
-                            #from https://developerdocs.instructure.com/services/canvas/basics/file.file_uploads
-                            #1
-                            filename = "results.txt"
+                            #https://canvasapi.readthedocs.io/en/stable/submission-ref.html?highlight=upload_comment#canvasapi.submission.Submission.upload_comment
+
+                            success, response = submission.upload_comment(f"{dirpath}/comments.txt")
+                            '''
+                            line 51 uploads comments.txt sucessfully
+                            note: canvas api does not allow editing of previous comment to upload a new file! in order to upload a new file, canvas HAS to create a new comment
+                            #the lines below analyze the metadata of the first comment to see if canvas api allows editing the text portion of a comment 
+                            '''
+                            filename = "metadata.txt"
+                            comm_id = submission.submission_comments[0]["id"]
+                            comm_text = submission.submission_comments[0]["comment"]
+                            comm_att = submission.submission_comments[0]["attachments"]
                             with open(filename, "w") as f:
-                                f.write(comment)
-
-                            #2
-                            file = submission.upload_comment(filename)
-
-                            #3
-                            submission.edit(comment={'file_ids': [file]})
-                            #upload to prev comment's url
-                  
+                                f.write("METADATA OF FIRST COMMENT ----\ncomment text:\n" + str( comm_text) + "\ncomment attachment:\n" + str( comm_att))
+                            success, response = submission.upload_comment(filename)
+                            # implement this in REST API PUT -> submission.post(comm_id["comment"] = "//new comment")
+                                
                             # PREVIOUS CODE:submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
 
+   
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
                     with open(f"{dirpath}/comments.txt.sent", "w") as fd:
@@ -255,7 +255,8 @@ last_comment={last_comment_date}""", file=fd)
 @cache
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
-    for submission in assignment.get_submissions(include=["user"]):
+    for submission in assignment.get_submissions(include=["user", "submission_comments"]):
         student_id = str(submission.user_id)
+        prev_comments = submission.submission_comments
         submissions_by_id[student_id] = submission
     return submissions_by_id
