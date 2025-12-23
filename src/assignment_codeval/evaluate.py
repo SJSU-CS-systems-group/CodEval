@@ -89,9 +89,27 @@ def check_function(args):
     function_name = args[0]
     files = args[1:]
 
-    # Surpress output
+    # Match:
+    #  [1] start of line OR non-identifier character
+    #  [2] function name
+    #  [3] optional whitespace
+    #  [4] opening parenthesis (function call)
+    regex = rf'(^|[^[:alnum:]_]){function_name}[[:space:]]*\('
+
+    # Strip comments, then search
+    cmd = (
+        "sed -E "
+        "'"
+        "s://.*$::g; " # C/C++ single-line comments
+        "s:#.*$::g; " # Python single-line comments
+        ":a; /\\/\\*/{N; s:/\\*.*?\\*/::g; ba}"
+        "' "
+        + " ".join(files)
+        + f" | grep -E '{regex}'"
+    )
+
     function_popen = subprocess.Popen(
-        ["grep", f"[^[:alpha:]]{function_name}[[:space:]]*("] + files,
+        ["bash", "-c", cmd],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -102,6 +120,101 @@ def check_function(args):
     else:
         print(f"Used {function_name} PASSED")
 
+def check_object(args):
+    """Will be followed by an object and a list of files to ensure that the function is
+    used by one of those files. 
+    
+    This primarily is used for C++ objects from instances of the ifstream and ofstream operators
+    
+    Arguments:
+        object_name: the object name to check files for usage of
+        *files: the files to check for the function name
+
+    Returns:
+        None
+    """
+    
+    check_test()
+    args = args.split()
+    object_name = args[0]
+    files = args[1:]
+
+    # Match:
+    #  [1] start of line OR non-identifier character
+    #  [2] object name
+    #  [3] optional whitespace
+    #  [4] stream operator << or >>
+    regex = rf'(^|[^[:alnum:]_]){object_name}[[:space:]]*(<<|>>)'
+
+    # Strip comments, then search
+    cmd = (
+        "sed -E "
+        "'s://.*$::g; "              # remove // comments
+        ":a; /\\/\\*/{N; s:/\\*.*?\\*/::g; ba}' "
+        + " ".join(files)
+        + f" | grep -E '{regex}'"
+    )
+
+    # Surpress output
+    function_popen = subprocess.Popen(
+        ["bash", "-c", cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    function_popen.communicate()
+    if function_popen.returncode:
+        print(f"Not using {object_name} FAILED")
+    else:
+        print(f"Used {object_name} PASSED")
+        
+def check_container(args):
+    """Will be followed by a container and a list of files to ensure that the function is
+    used by one of those files. 
+    
+    This primarily is used for C++ containers such as vector<double> or std::vector v;
+    
+    Arguments:
+        object_name: the object name to check files for usage of
+        *files: the files to check for the function name
+
+    Returns:
+        None
+    """
+    
+    check_test()
+    args = args.split()
+    container_name = args[0]
+    files = args[1:]
+    
+    # Match:
+    #  [1] start of line OR non-identifier character
+    #  [2] container name
+    #  [3] optional whitespace
+    #  [4] either '<' (template usage) or space (e.g. std::vector v;)
+    regex = rf'(^|[^[:alnum:]_]){container_name}[[:space:]]*(<|[[:space:]])'
+
+    # Strip comments, then search
+    cmd = (
+        "sed -E "
+        "'s://.*$::g; "
+        ":a; /\\/\\*/{N; s:/\\*.*?\\*/::g; ba}' "
+        + " ".join(files)
+        + f" | grep -E '{regex}'"
+    )
+
+    function_popen = subprocess.Popen(
+        ["bash", "-c", cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    function_popen.communicate()
+    if function_popen.returncode:
+        print(f"Not using {container_name} FAILED")
+    else:
+        print(f"Used {container_name} PASSED")
+    
 
 def check_not_function(args):
     """Will be followed by a function name and a list of files to check to ensure that the function
@@ -416,6 +529,8 @@ this in the function itself.
 tag_func_map = {
     "C": compile_code,
     "CF": check_function,
+    "CO" : check_object,
+    "CC": check_container,
     "NCF": check_not_function,
     "CMD": run_command,
     "TCMD": run_command_noerror,
