@@ -47,6 +47,8 @@ Tags used in a spec file (\<course name>.codeval)
 | RUN | Run Script | Specifies the script to use to evaluate the specification file. Defaults to evaluate.sh. |
 | Z | Download Zip | Will be followed by zip files to download from Canvas to use when running the test cases. |
 | CF | Check Function | Will be followed by a function name and a list of files to check to ensure that the function is used by one of those files. |
+| CC | Check Container | Will be followed by a function name and a list of files to check to ensure that a container is used by one of those files. Primarily supports C++ containers such as std::vector |
+| CO | Check Object | Will be followed by a function name and a list of files to check to ensure that an object is used by one of those files. Primarily support C++ stream operations |
 | CMD/TCMD | Run Command | Will be followed by a command to run. The TCMD will cause the evaluation to fail if the command exits with an error. |
 | CMP | Compare | Will be followed by two files to compare. |
 | T/HT | Test Case | Will be followed by the command to run to test the submission. |
