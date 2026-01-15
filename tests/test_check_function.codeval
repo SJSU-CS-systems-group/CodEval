@@ -1,0 +1,24 @@
+# Test function checking tags: CF (check function used), NCF (check function not used)
+# Checks that specific functions are/aren't used in the source code
+
+# Check that print() is used in the Python file
+CF print sample_with_functions.py
+
+# Check that len() is used in the Python file
+CF len sample_with_functions.py
+
+# Check that range() is used in the Python file
+CF range sample_with_functions.py
+
+# Check that eval() is NOT used in the Python file
+NCF eval sample_with_functions.py
+
+# Run the actual test
+T python3 sample_with_functions.py
+O Hello World
+O 3
+O 0
+O 1
+O 2
+O 3
+O 4

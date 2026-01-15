@@ -1,0 +1,6 @@
+# Test file-based tags: IF (supply input file), OF (check output file)
+# Tests the sample_echo program with file-based input and output
+
+T python3 sample_echo.py
+IF input.txt
+OF expected_output.txt

@@ -1,0 +1,15 @@
+# Test compile tag: C (compile code)
+# Compiles a C++ program before running tests
+
+C g++ -o sample_cpp sample_cpp.cpp
+
+# Check that required objects and containers are used
+CO cout sample_cpp.cpp
+CC vector sample_cpp.cpp
+
+# Note: Running the compiled program would require input.txt to exist
+# T ./sample_cpp
+# O Hello from C++
+# O 1
+# O 2
+# O 3

@@ -1,0 +1,6 @@
+# Test basic tags: T (test case), O (check output), E (check error)
+# Tests the sample program that outputs "hello" to stdout and "bye" to stderr
+
+T python3 sample_program.py
+O hello
+E bye

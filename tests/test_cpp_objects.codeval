@@ -1,0 +1,14 @@
+# Test C++ object and container tags: CO (check object), CC (check container)
+# Checks that specific C++ objects and containers are used in the source code
+
+# Check that cout object is used with << operator
+CO cout sample_cpp.cpp
+
+# Check that infile object is used with >> operator (ifstream)
+CO infile sample_cpp.cpp
+
+# Check that vector container is used
+CC vector sample_cpp.cpp
+
+# Check that string is used
+CC string sample_cpp.cpp

@@ -1,0 +1,7 @@
+# Test hidden test case tag: HT (hidden test case)
+# Hidden test cases don't show details on failure
+
+HT python3 sample_program.py
+HINT This is a hidden test - check your stdout and stderr output
+O hello
+E bye
