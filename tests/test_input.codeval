@@ -1,0 +1,6 @@
+# Test input tag: I (supply input)
+# Tests the sample_echo program that echoes stdin to stdout
+
+T python3 sample_echo.py
+I test input line
+O test input line

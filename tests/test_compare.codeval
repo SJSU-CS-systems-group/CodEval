@@ -1,0 +1,6 @@
+# Test compare tag: CMP (compare files)
+# Compares output file with expected file
+
+T python3 sample_file_writer.py output.txt
+O File written successfully
+CMP output.txt expected_file.txt

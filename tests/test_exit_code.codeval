@@ -1,0 +1,6 @@
+# Test exit code tag: X (expected exit code)
+# Tests that the program exits with the expected code
+
+T python3 sample_exit.py
+O exiting with code 42
+X 42

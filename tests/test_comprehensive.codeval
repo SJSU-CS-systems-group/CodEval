@@ -1,0 +1,26 @@
+# Comprehensive test demonstrating multiple tags working together
+# Uses the sample_program.py which outputs hello to stdout and bye to stderr
+
+# Set a reasonable timeout for all tests
+TO 10
+
+# Test 1: Basic output and error checking
+T python3 sample_program.py
+O hello
+E bye
+
+# Test 2: Input processing with echo program
+T python3 sample_echo.py
+I hello world
+O hello world
+
+# Test 3: Exit code verification
+T python3 sample_exit.py
+O exiting with code 42
+X 42
+
+# Test 4: Hidden test case
+HT python3 sample_program.py
+HINT Check stdout and stderr output
+O hello
+E bye

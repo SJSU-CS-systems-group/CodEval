@@ -1,0 +1,9 @@
+# Test command tags: CMD (run command), TCMD (run command, fail on error)
+# CMD runs a command without checking result
+# TCMD runs a command and fails if the command fails
+
+CMD echo "Running setup command"
+TCMD python3 -c "print('command succeeded')"
+T python3 sample_program.py
+O hello
+E bye

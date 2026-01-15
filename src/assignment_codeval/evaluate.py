@@ -301,13 +301,12 @@ def compare(files):
     """Will be followed by files to compare.
 
     Arguments:
-        files: An array of files to compare
+        files: A string of space-separated files to compare
 
     Returns:
         None
     """
-    for file in files:
-        cmps.append(file)
+    cmps.append(files.split())
 
 
 def test_case(test_case_command):
@@ -563,6 +562,12 @@ def setup():
     for file in files:
         open(file, "w").close()
 
+    # Reset test case variables
+    global expected_exit_code
+    expected_exit_code = -1
+    global cmps
+    cmps = []
+
 
 def parse_tags(tags: list[str]):
     """Given list of strings, parses and executes tags
@@ -689,7 +694,7 @@ def check_test():
 
     # Compare files handling, do not surpress output
     for files in cmps:
-        cmd_popen = subprocess.Popen(["cmp", files])
+        cmd_popen = subprocess.Popen(["cmp"] + files)
         cmd_popen.communicate()
         if cmd_popen.returncode:
             passed = False

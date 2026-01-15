@@ -1,0 +1,7 @@
+# Test hint tag: HINT (provide hint on failure)
+# Tests the sample program with a hint
+
+T python3 sample_program.py
+HINT Make sure your program prints hello to stdout
+O hello
+E bye

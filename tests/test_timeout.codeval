@@ -1,0 +1,7 @@
+# Test timeout tag: TO (timeout in seconds)
+# Tests the sample_slow program with a sufficient timeout
+
+TO 5
+T python3 sample_slow.py
+O starting
+O done
