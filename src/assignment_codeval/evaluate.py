@@ -562,6 +562,12 @@ def setup():
     for file in files:
         open(file, "w").close()
 
+    # Reset test case variables
+    global expected_exit_code
+    expected_exit_code = -1
+    global cmps
+    cmps = []
+
 
 def parse_tags(tags: list[str]):
     """Given list of strings, parses and executes tags
