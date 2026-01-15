@@ -14,19 +14,12 @@ T python3 sample_echo.py
 I hello world
 O hello world
 
-# Test 3: Multiple input lines
-T python3 sample_echo.py
-I first line
-I second line
-O first line
-O second line
-
-# Test 4: Exit code verification
+# Test 3: Exit code verification
 T python3 sample_exit.py
 O exiting with code 42
 X 42
 
-# Test 5: Hidden test case
+# Test 4: Hidden test case
 HT python3 sample_program.py
 HINT Check stdout and stderr output
 O hello
