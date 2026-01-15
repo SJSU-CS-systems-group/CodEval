@@ -306,8 +306,7 @@ def compare(files):
     Returns:
         None
     """
-    for file in files.split():
-        cmps.append(file)
+    cmps.append(files.split())
 
 
 def test_case(test_case_command):
@@ -689,7 +688,7 @@ def check_test():
 
     # Compare files handling, do not surpress output
     for files in cmps:
-        cmd_popen = subprocess.Popen(["cmp", files])
+        cmd_popen = subprocess.Popen(["cmp"] + files)
         cmd_popen.communicate()
         if cmd_popen.returncode:
             passed = False
