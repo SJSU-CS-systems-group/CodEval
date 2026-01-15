@@ -297,18 +297,17 @@ def run_command_noerror(command):
         print("PASSED")
 
 
-def compare(file1, file2):
-    """Will be followed by two files to compare.
+def compare(files):
+    """Will be followed by files to compare.
 
     Arguments:
-        file1: The first file to compare
-        file2: The second file to compare
+        files: An array of files to compare
 
     Returns:
         None
     """
-    cmps.append(file1)
-    cmps.append(file2)
+    for file in files:
+        cmps.append(file)
 
 
 def test_case(test_case_command):
