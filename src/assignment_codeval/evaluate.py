@@ -578,26 +578,89 @@ def parse_tags(tags: list[str]):
     Returns:
         None
     """
-    tag_pattern = r"([A-Z]+) (.*)"
-    for tag_line in tags:
-        tag_match = re.match(tag_pattern, tag_line)
+    # Pattern matches: TAG arguments (arguments required)
+    tag_pattern = r"([A-Z]+)\s+(.*)"
+    # Pattern for tag with optional arguments
+    tag_only_pattern = r"([A-Z]+)\s*$"
 
-        # If line does not match tag format
+    valid_tags = set(tag_func_map.keys())
+
+    for line_num, tag_line in enumerate(tags, start=1):
+        # Skip empty lines and comments
+        stripped = tag_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        tag_match = re.match(tag_pattern, tag_line)
+        tag_only_match = re.match(tag_only_pattern, tag_line)
+
+        # Check for tag without arguments
+        if tag_only_match and not tag_match:
+            tag = tag_only_match.group(1)
+            if tag in valid_tags:
+                print(f"Error on line {line_num}: Tag '{tag}' requires arguments")
+                print(f"  {line_num}: {tag_line.rstrip()}")
+                sys.exit(1)
+            elif tag.isupper():
+                print(f"Error on line {line_num}: Unknown tag '{tag}'")
+                print(f"  {line_num}: {tag_line.rstrip()}")
+                print(f"  Valid tags are: {', '.join(sorted(valid_tags))}")
+                sys.exit(1)
+            continue
+
+        # If line does not match tag format, skip non-tag lines
         if not tag_match:
+            # Check if it looks like an invalid tag (starts with uppercase letters)
+            potential_tag = re.match(r"([A-Z]+)", tag_line)
+            if potential_tag:
+                tag = potential_tag.group(1)
+                if tag not in valid_tags and len(tag) <= 4:
+                    print(f"Error on line {line_num}: Unknown tag '{tag}'")
+                    print(f"  {line_num}: {tag_line.rstrip()}")
+                    print(f"  Valid tags are: {', '.join(sorted(valid_tags))}")
+                    sys.exit(1)
             continue
 
         tag = tag_match.group(1)
         args = tag_match.group(2)
 
+        # Check for unknown tag
+        if tag not in valid_tags:
+            print(f"Error on line {line_num}: Unknown tag '{tag}'")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            print(f"  Valid tags are: {', '.join(sorted(valid_tags))}")
+            sys.exit(1)
+
+        # Check for empty arguments
+        if not args.strip():
+            print(f"Error on line {line_num}: Tag '{tag}' requires arguments")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            sys.exit(1)
+
         # Execute function based on tag-function mapping
         try:
             tag_func_map[tag](args)
-        except KeyError:
-            # Tag was not found in dictionary
-            continue
-        except (TypeError, ValueError):
+        except TypeError as e:
+            print(f"Error on line {line_num}: Invalid arguments for tag '{tag}'")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            print(f"  Details: {e}")
+            sys.exit(1)
+        except ValueError as e:
+            print(f"Error on line {line_num}: Invalid value for tag '{tag}'")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            print(f"  Details: {e}")
+            sys.exit(1)
+        except FileNotFoundError as e:
+            print(f"Error on line {line_num}: File not found for tag '{tag}'")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            print(f"  Details: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error on line {line_num}: Unexpected error for tag '{tag}'")
+            print(f"  {line_num}: {tag_line.rstrip()}")
+            print(f"  Details: {e}")
             traceback.print_exc()
-            print(f"Invalid arguments for tag {tag} {args}")
+            sys.exit(1)
 
 
 def parse_diff(diff_lines: list[str]):
