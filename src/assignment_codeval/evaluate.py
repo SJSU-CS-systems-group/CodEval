@@ -301,12 +301,12 @@ def compare(files):
     """Will be followed by files to compare.
 
     Arguments:
-        files: An array of files to compare
+        files: A string of space-separated files to compare
 
     Returns:
         None
     """
-    for file in files:
+    for file in files.split():
         cmps.append(file)
 
 
