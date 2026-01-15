@@ -22,5 +22,8 @@ dependencies = [
 "markdown==3.4.1",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
 [project.scripts]
 assignment-codeval = "assignment_codeval.cli:cli"

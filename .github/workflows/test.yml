@@ -25,56 +25,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[test]"
 
-      - name: Run test_basic
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_basic.codeval
-
-      - name: Run test_input
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_input.codeval
-
-      - name: Run test_file_io
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_file_io.codeval
-
-      - name: Run test_exit_code
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_exit_code.codeval
-
-      - name: Run test_timeout
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_timeout.codeval
-
-      - name: Run test_hint
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_hint.codeval
-
-      - name: Run test_hidden
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_hidden.codeval
-
-      - name: Run test_cmd
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_cmd.codeval
-
-      - name: Run test_check_function
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_check_function.codeval
-
-      - name: Run test_cpp_objects
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_cpp_objects.codeval
-
-      - name: Run test_compare
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_compare.codeval
-
-      - name: Run test_compile
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_compile.codeval
-
-      - name: Run test_comprehensive
-        working-directory: tests
-        run: assignment-codeval run-evaluation test_comprehensive.codeval
+      - name: Run tests
+        run: pytest tests/ -v
