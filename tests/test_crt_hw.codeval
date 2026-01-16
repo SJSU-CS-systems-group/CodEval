@@ -1,0 +1,17 @@
+# Test CRT_HW tag - content between CRT_HW lines should be ignored
+
+T python3 sample_program.py
+O hello
+E bye
+
+CRT_HW start
+# This section should be completely ignored
+T python3 nonexistent_program.py
+O this would fail if not ignored
+INVALID_TAG should be ignored
+CRT_HW end
+
+# This test should still run
+T python3 sample_echo.py
+I test input
+O test input

@@ -579,16 +579,28 @@ def parse_tags(tags: list[str]):
         None
     """
     # Pattern matches: TAG arguments (arguments required)
-    tag_pattern = r"([A-Z]+)\s+(.*)"
+    tag_pattern = r"([A-Z_]+)\s+(.*)"
     # Pattern for tag with optional arguments
-    tag_only_pattern = r"([A-Z]+)\s*$"
+    tag_only_pattern = r"([A-Z_]+)\s*$"
 
     valid_tags = set(tag_func_map.keys())
+
+    # Track if we're inside a CRT_HW block (content to ignore)
+    in_crt_hw_block = False
 
     for line_num, tag_line in enumerate(tags, start=1):
         # Skip empty lines and comments
         stripped = tag_line.strip()
         if not stripped or stripped.startswith("#"):
+            continue
+
+        # Check for CRT_HW block delimiter
+        if stripped.startswith("CRT_HW"):
+            in_crt_hw_block = not in_crt_hw_block
+            continue
+
+        # Skip lines inside CRT_HW block
+        if in_crt_hw_block:
             continue
 
         tag_match = re.match(tag_pattern, tag_line)
@@ -842,7 +854,14 @@ def run_evaluation(codeval_file):
     global test_case_total
     with open(codeval_file, "r") as infile:
         testcases = infile.readlines()
+        in_crt_hw_block = False
         for testcase in testcases:
+            stripped = testcase.strip()
+            if stripped.startswith("CRT_HW"):
+                in_crt_hw_block = not in_crt_hw_block
+                continue
+            if in_crt_hw_block:
+                continue
             parts = testcase.split(" ", 1)
             tag = parts[0]
             if tag == "T" or tag == "HT" or tag == "TCMD":
