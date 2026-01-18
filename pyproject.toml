@@ -24,6 +24,10 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+ai = ["anthropic>=0.39.0", "openai>=1.0.0", "google-generativeai>=0.8.0"]
+anthropic = ["anthropic>=0.39.0"]
+openai = ["openai>=1.0.0"]
+google = ["google-generativeai>=0.8.0"]
 
 [project.scripts]
 assignment-codeval = "assignment_codeval.cli:cli"

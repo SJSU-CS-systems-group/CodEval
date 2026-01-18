@@ -231,6 +231,20 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 
 Test programming assignments against multiple AI models (Claude, GPT, Gemini) to benchmark their performance.
 
+### Installation
+
+Install the AI provider packages you want to use:
+
+```bash
+# Install all AI providers
+pip install assignment-codeval[ai]
+
+# Or install specific providers
+pip install anthropic        # For Claude models
+pip install openai           # For GPT models
+pip install google-generativeai  # For Gemini models
+```
+
 ### codeval.ini contents (optional)
 ```
 [AI]

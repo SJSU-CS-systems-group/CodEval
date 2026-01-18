@@ -187,6 +187,11 @@ def call_anthropic(model_id: str, prompt: str, api_key: str) -> Optional[str]:
     """Call Anthropic API."""
     try:
         import anthropic
+    except ImportError:
+        error("anthropic package not installed. Run: pip install anthropic")
+        return None
+
+    try:
         client = anthropic.Anthropic(api_key=api_key)
 
         message = client.messages.create(
@@ -205,6 +210,11 @@ def call_openai(model_id: str, prompt: str, api_key: str) -> Optional[str]:
     """Call OpenAI API."""
     try:
         import openai
+    except ImportError:
+        error("openai package not installed. Run: pip install openai")
+        return None
+
+    try:
         client = openai.OpenAI(api_key=api_key)
 
         response = client.chat.completions.create(
@@ -223,6 +233,11 @@ def call_google(model_id: str, prompt: str, api_key: str) -> Optional[str]:
     """Call Google Gemini API."""
     try:
         import google.generativeai as genai
+    except ImportError:
+        error("google-generativeai package not installed. Run: pip install google-generativeai")
+        return None
+
+    try:
         genai.configure(api_key=api_key)
 
         model = genai.GenerativeModel(model_id)
