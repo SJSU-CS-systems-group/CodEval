@@ -36,11 +36,9 @@ class AIModel:
 
 # Default models to benchmark
 DEFAULT_MODELS = [
-    # Anthropic models (newest to oldest for compatibility)
+    # Anthropic models
     AIModel("anthropic", "claude-sonnet-4-20250514", "Claude Sonnet 4"),
-    AIModel("anthropic", "claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"),
-    AIModel("anthropic", "claude-3-5-haiku-20241022", "Claude 3.5 Haiku"),
-    AIModel("anthropic", "claude-3-haiku-20240307", "Claude 3 Haiku"),
+    AIModel("anthropic", "claude-opus-4-20250514", "Claude Opus 4"),
     # OpenAI models
     AIModel("openai", "gpt-4o", "GPT-4o"),
     AIModel("openai", "gpt-4o-mini", "GPT-4o Mini"),
@@ -48,7 +46,7 @@ DEFAULT_MODELS = [
     AIModel("openai", "o3-mini", "o3-mini"),
     # Google models
     AIModel("google", "gemini-2.0-flash", "Gemini 2.0 Flash"),
-    AIModel("google", "gemini-2.0-flash-thinking-exp", "Gemini 2.0 Flash Thinking"),
+    AIModel("google", "gemini-1.5-pro-latest", "Gemini 1.5 Pro"),
 ]
 
 
@@ -308,6 +306,9 @@ def run_benchmark(
     if config is None:
         config = load_ai_config()
 
+    # Convert to absolute path to avoid issues with relative paths
+    codeval_path = str(Path(codeval_path).resolve())
+
     # Extract assignment info
     description, compile_cmd, language = extract_assignment_from_codeval(codeval_path)
     source_file = extract_source_filename(compile_cmd)
@@ -372,18 +373,27 @@ def run_benchmark(
 
             # Copy codeval file to attempt directory, stripping Z tags (not supported locally)
             import shutil
-            with open(codeval_path, "r", encoding="utf-8") as f:
-                codeval_content = f.read()
-            # Remove Z tag lines (zip file downloads only work on Canvas)
-            codeval_lines = [line for line in codeval_content.split("\n") if not line.startswith("Z ")]
-            (attempt_dir / Path(codeval_path).name).write_text("\n".join(codeval_lines))
+            try:
+                with open(codeval_path, "r", encoding="utf-8") as f:
+                    codeval_content = f.read()
+                # Remove Z tag lines (zip file downloads only work on Canvas)
+                codeval_lines = [line for line in codeval_content.split("\n") if not line.startswith("Z ")]
+                (attempt_dir / Path(codeval_path).name).write_text("\n".join(codeval_lines))
 
-            # Copy support files if they exist
-            codeval_dir = Path(codeval_path).parent
-            support_dir = codeval_dir / "support_files"
-            if support_dir.exists():
-                for f in support_dir.iterdir():
-                    shutil.copy(f, attempt_dir / f.name)
+                # Copy support files if they exist
+                codeval_dir = Path(codeval_path).parent
+                support_dir = codeval_dir / "support_files"
+                if support_dir.exists():
+                    for support_file in support_dir.iterdir():
+                        shutil.copy(support_file, attempt_dir / support_file.name)
+            except Exception as e:
+                error(f"Failed to copy codeval/support files: {e}")
+                model_results["attempts"].append({
+                    "success": False,
+                    "error": f"File copy failed: {e}",
+                    "time": elapsed,
+                })
+                continue
 
             # Run evaluation using subprocess
             info("Running evaluation...")

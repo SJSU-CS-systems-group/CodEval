@@ -292,9 +292,11 @@ assignment-codeval test-with-ai my_assignment.codeval --anthropic-key sk-ant-xxx
 
 | Provider | Models |
 |----------|--------|
-| Anthropic | Claude Sonnet 4, Claude Opus 4, Claude 3.5 Haiku |
+| Anthropic | Claude Sonnet 4, Claude Opus 4 |
 | OpenAI | GPT-4o, GPT-4o Mini, o1, o3-mini |
-| Google | Gemini 2.0 Flash, Gemini 2.0 Flash Thinking |
+| Google | Gemini 2.0 Flash, Gemini 1.5 Pro |
+
+Note: You can add additional models using `-m "model-id"`. Check each provider's documentation for available model IDs.
 
 ### Output Structure
 ```
