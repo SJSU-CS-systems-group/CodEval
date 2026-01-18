@@ -370,9 +370,13 @@ def run_benchmark(
             info(f"Response received in {elapsed:.2f}s")
             info(f"Code saved to {source_path}")
 
-            # Copy codeval file to attempt directory
+            # Copy codeval file to attempt directory, stripping Z tags (not supported locally)
             import shutil
-            shutil.copy(codeval_path, attempt_dir / Path(codeval_path).name)
+            with open(codeval_path, "r", encoding="utf-8") as f:
+                codeval_content = f.read()
+            # Remove Z tag lines (zip file downloads only work on Canvas)
+            codeval_lines = [line for line in codeval_content.split("\n") if not line.startswith("Z ")]
+            (attempt_dir / Path(codeval_path).name).write_text("\n".join(codeval_lines))
 
             # Copy support files if they exist
             codeval_dir = Path(codeval_path).parent
