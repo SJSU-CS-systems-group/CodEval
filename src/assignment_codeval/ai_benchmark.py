@@ -23,7 +23,6 @@ from configparser import ConfigParser
 
 import click
 
-from .evaluate import run_evaluation
 from .commons import info, warn, error, debug
 
 
@@ -37,13 +36,17 @@ class AIModel:
 
 # Default models to benchmark
 DEFAULT_MODELS = [
+    # Anthropic models (newest to oldest for compatibility)
     AIModel("anthropic", "claude-sonnet-4-20250514", "Claude Sonnet 4"),
-    AIModel("anthropic", "claude-opus-4-20250514", "Claude Opus 4"),
+    AIModel("anthropic", "claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"),
     AIModel("anthropic", "claude-3-5-haiku-20241022", "Claude 3.5 Haiku"),
+    AIModel("anthropic", "claude-3-haiku-20240307", "Claude 3 Haiku"),
+    # OpenAI models
     AIModel("openai", "gpt-4o", "GPT-4o"),
     AIModel("openai", "gpt-4o-mini", "GPT-4o Mini"),
     AIModel("openai", "o1", "o1"),
     AIModel("openai", "o3-mini", "o3-mini"),
+    # Google models
     AIModel("google", "gemini-2.0-flash", "Gemini 2.0 Flash"),
     AIModel("google", "gemini-2.0-flash-thinking-exp", "Gemini 2.0 Flash Thinking"),
 ]
@@ -194,9 +197,14 @@ def call_anthropic(model_id: str, prompt: str, api_key: str) -> Optional[str]:
     try:
         client = anthropic.Anthropic(api_key=api_key)
 
+        # Adjust max_tokens based on model capabilities
+        max_tokens = 4096  # Safe default for older models
+        if "claude-3-5" in model_id or "claude-sonnet-4" in model_id or "claude-opus-4" in model_id:
+            max_tokens = 8192
+
         message = client.messages.create(
             model=model_id,
-            max_tokens=8192,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -373,25 +381,48 @@ def run_benchmark(
                 for f in support_dir.iterdir():
                     shutil.copy(f, attempt_dir / f.name)
 
-            # Run evaluation
+            # Run evaluation using subprocess
             info("Running evaluation...")
-            original_dir = os.getcwd()
             try:
-                os.chdir(attempt_dir)
-                eval_result = run_evaluation(Path(codeval_path).name)
+                result = subprocess.run(
+                    ["assignment-codeval", "run-evaluation", Path(codeval_path).name],
+                    cwd=attempt_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+
+                # Save evaluation output
+                (attempt_dir / "evaluation_output.txt").write_text(
+                    f"=== STDOUT ===\n{result.stdout}\n\n=== STDERR ===\n{result.stderr}"
+                )
+
+                eval_passed = result.returncode == 0
 
                 model_results["attempts"].append({
                     "success": True,
-                    "passed": eval_result,
+                    "passed": eval_passed,
                     "time": elapsed,
                 })
 
-                if eval_result:
+                if eval_passed:
                     model_results["passed"] = True
                     info(f"✓ {model.display_name} PASSED")
                 else:
                     info(f"✗ {model.display_name} FAILED")
+                    # Show brief failure info
+                    if "FAILED" in result.stdout:
+                        for line in result.stdout.split("\n"):
+                            if "FAILED" in line or "Command ran" in line:
+                                info(f"  {line.strip()}")
 
+            except subprocess.TimeoutExpired:
+                model_results["attempts"].append({
+                    "success": False,
+                    "error": "Evaluation timed out",
+                    "time": elapsed,
+                })
+                error("Evaluation timed out")
             except Exception as e:
                 model_results["attempts"].append({
                     "success": False,
@@ -399,8 +430,6 @@ def run_benchmark(
                     "time": elapsed,
                 })
                 error(f"Evaluation error: {e}")
-            finally:
-                os.chdir(original_dir)
 
         results[model.display_name] = model_results
 
