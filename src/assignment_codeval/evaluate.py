@@ -374,8 +374,8 @@ def supply_input(inputs):
     Returns:
         None
     """
-    with open("fileinput", "a") as outfile:
-        outfile.write(inputs)
+    with open("fileinput", "ab") as outfile:
+        outfile.write(inputs.encode("utf-8"))
 
 
 def supply_input_file(input_file):
@@ -387,11 +387,11 @@ def supply_input_file(input_file):
     Returns:
         None
     """
-    with open(input_file, "r") as infile:
-        input_lines = infile.readlines()
+    with open(input_file, "rb") as infile:
+        input_data = infile.read()
 
-    with open("fileinput", "a") as outfile:
-        outfile.writelines(input_lines)
+    with open("fileinput", "ab") as outfile:
+        outfile.write(input_data)
 
 
 def check_output(outputs):
@@ -715,7 +715,7 @@ def check_test():
     print(f"Test case {test_case_count} of {test_case_total}")
     passed = True
 
-    with open("fileinput", "r") as fileinput, open(
+    with open("fileinput", "rb") as fileinput, open(
         "youroutput", "w"
     ) as youroutput, open("yourerror", "w") as yourerror:
         test_exec = subprocess.Popen(
