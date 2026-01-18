@@ -265,7 +265,7 @@ assignment-codeval test-with-ai <codeval_file> [OPTIONS]
 ### Options
 | Option | Description |
 |--------|-------------|
-| `-o, --output-dir` | Directory to store solutions and results (default: `ai_benchmark_results`) |
+| `-o, --output-dir` | Directory to store solutions and results (default: `ai_test_results`) |
 | `-n, --attempts` | Number of attempts per model (default: 1) |
 | `-m, --models` | Specific models to test (can be used multiple times) |
 | `-p, --providers` | Only test models from specific providers: `anthropic`, `openai`, `google` |
@@ -298,7 +298,7 @@ assignment-codeval test-with-ai my_assignment.codeval --anthropic-key sk-ant-xxx
 
 ### Output Structure
 ```
-ai_benchmark_results/
+ai_test_results/
 ├── prompt.txt                    # The prompt sent to AI models
 ├── results.json                  # Summary of all results
 ├── Claude_Sonnet_4/

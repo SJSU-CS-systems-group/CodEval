@@ -455,7 +455,7 @@ def run_benchmark(
 
 @click.command("test-with-ai")
 @click.argument("codeval_file", type=click.Path(exists=True))
-@click.option("--output-dir", "-o", default="ai_benchmark_results",
+@click.option("--output-dir", "-o", default="ai_test_results",
               help="Directory to store solutions and results")
 @click.option("--attempts", "-n", default=1, type=int,
               help="Number of attempts per model")
