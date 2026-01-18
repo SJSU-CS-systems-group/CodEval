@@ -227,3 +227,81 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 	C cc -o bigbag --std=gnu11 bigbag.c
 
 
+## 4. Test Assignments with AI Models
+
+Test programming assignments against multiple AI models (Claude, GPT, Gemini) to benchmark their performance.
+
+### codeval.ini contents (optional)
+```
+[AI]
+anthropic_key=sk-ant-...
+openai_key=sk-...
+google_key=...
+```
+
+API keys can also be provided via:
+- Environment variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+- Command line options: `--anthropic-key`, `--openai-key`, `--google-key`
+
+### Command to run
+```bash
+assignment-codeval test-with-ai <codeval_file> [OPTIONS]
+```
+
+### Options
+| Option | Description |
+|--------|-------------|
+| `-o, --output-dir` | Directory to store solutions and results (default: `ai_benchmark_results`) |
+| `-n, --attempts` | Number of attempts per model (default: 1) |
+| `-m, --models` | Specific models to test (can be used multiple times) |
+| `-p, --providers` | Only test models from specific providers: `anthropic`, `openai`, `google` |
+| `--anthropic-key` | Anthropic API key |
+| `--openai-key` | OpenAI API key |
+| `--google-key` | Google API key |
+
+### Examples
+```bash
+# Test with all Anthropic models
+assignment-codeval test-with-ai my_assignment.codeval -p anthropic
+
+# Test with specific model, 3 attempts each
+assignment-codeval test-with-ai my_assignment.codeval -m "Claude Sonnet 4" -n 3
+
+# Test with all providers (requires all API keys)
+assignment-codeval test-with-ai my_assignment.codeval -n 2
+
+# Pass API key directly
+assignment-codeval test-with-ai my_assignment.codeval --anthropic-key sk-ant-xxx -p anthropic
+```
+
+### Supported Models
+
+| Provider | Models |
+|----------|--------|
+| Anthropic | Claude Sonnet 4, Claude Opus 4, Claude 3.5 Haiku |
+| OpenAI | GPT-4o, GPT-4o Mini, o1, o3-mini |
+| Google | Gemini 2.0 Flash, Gemini 2.0 Flash Thinking |
+
+### Output Structure
+```
+ai_benchmark_results/
+├── prompt.txt                    # The prompt sent to AI models
+├── results.json                  # Summary of all results
+├── Claude_Sonnet_4/
+│   └── attempt_1/
+│       ├── raw_response.txt      # Raw AI response
+│       ├── solution.c            # Extracted code
+│       └── <codeval files>       # Copied for evaluation
+├── GPT-4o/
+│   └── attempt_1/
+│       └── ...
+└── ...
+```
+
+### Notes
+- The command extracts the assignment description from the codeval file (between `CRT_HW START` and `CRT_HW END` tags)
+- Support files from `support_files/` directory are automatically copied for evaluation
+- Results include pass/fail status, response time, and any errors
+- Use multiple attempts (`-n`) to account for AI response variability
+
+
