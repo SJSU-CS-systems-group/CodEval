@@ -52,9 +52,9 @@ Tags used in a spec file (\<course name>.codeval)
 | CMD/TCMD | Run Command | Will be followed by a command to run. The TCMD will cause the evaluation to fail if the command exits with an error. |
 | CMP | Compare | Will be followed by two files to compare. |
 | T/HT | Test Case | Will be followed by the command to run to test the submission. |
-| I/IF | Supply Input | Specifies the input for a test case. The IF version will read the input from a file. |
-| O/OF | Check Output | Specifies the expected output for a test case. The OF version will read from a file. |
-| E | Check Error | Specifies the expected error output for a test case. |
+| I/IB/IF | Supply Input | Specifies the input for a test case. I adds a newline, IB does not add a newline, IF reads from a file. |
+| O/OB/OF | Check Output | Specifies the expected output for a test case. O adds a newline, OB does not add a newline, OF reads from a file. |
+| E/EB | Check Error | Specifies the expected error output for a test case. E adds a newline, EB does not. |
 | TO | Timeout | Specifies the time limit in seconds for a test case to run. Defaults to 20 seconds. |
 | X | Exit Code | Specifies the expected exit code for a test case. Defaults to zero. |
 | SS | Start Server | Command containing timeout (wait until server starts), kill timeout (wait to kill the server), and the command to start a server |
@@ -149,7 +149,7 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 - SQL tests need a separate container image to run SQL tests in MYSQL.
 
 
-## 4. Create an assignment on Canvas
+## Create an assignment on Canvas
 
 ### Command to create the assignment:
 **Syntax:** `python3 codeval.py create-assignment <course_name> <specification_file> [ --dry-run/--no-dry-run ] [ --verbose/--no-verbose ] [ --group_name ]`  
@@ -159,17 +159,19 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 **Syntax:** `python3 codeval.py grade-submissions <course_name> [ --dry-run/--no-dry-run ] [ --verbose/--no-verbose ] [ --force/--no-force][--copytmpdir/--no-copytmpdir]`  
 **Example:** `python3 codeval.py grade-submissions "Practice1" --no-dry-run --force --verbose`
 
-**New tags introduced are :** 
+### Assignment description tags
 
-CRT_HW START <Assignment_name>
+* CRT_HW START <Assignment_name> - usually at the beginning of the file. Then lines that follow this tag are the assignment description in markdown.
 
-CRT_HW END
+* CRT_HW END - ends the assignment description
 
-DISCSN_URL
+## Assignment description macros
 
-EXMPLS <no_of_test_cases>
+* DISCSN_URL - this macro will be substituted with the URL of the discussion that was created for this assignment
 
-FILE[file_name]
+* EXMPLS <no_of_test_cases> - this macro will be replaced with the specified number of test cases formatted for display
+
+* FILE[file_name] - this macro will be replaced by a link to the specified file
 
 ### MODIFICATIONS REQUIRED IN THE SPECIFICATION FILE.
 1) Start the specification file with the tag CRT_HW START followed by a space followed by the name of assignment.

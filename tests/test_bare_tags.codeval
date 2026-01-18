@@ -1,0 +1,21 @@
+# Test bare input/output tags: IB (input without newline), OB (output without newline)
+# Tests the sample_echo_bare program that echoes stdin to stdout without newlines
+
+# Test IB and OB - input without newline, output without newline
+T python3 sample_echo_bare.py
+IB hello
+OB hello
+
+# Test multiple IB tags concatenate without newlines
+T python3 sample_echo_bare.py
+IB one
+IB two
+IB three
+OB onetwothree
+
+# Test mixing I and IB - I adds newline, IB does not
+T python3 sample_echo_bare.py
+I line with newline
+IB no newline here
+O line with newline
+OB no newline here

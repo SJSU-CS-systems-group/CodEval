@@ -366,7 +366,20 @@ def test_case_hidden(test_case_command):
 
 
 def supply_input(inputs):
-    """Specifies the input for a test case.
+    """Specifies the input for a test case (adds newline at end).
+
+    Arguments:
+        *inputs: inputs to be used for test case
+
+    Returns:
+        None
+    """
+    with open("fileinput", "ab") as outfile:
+        outfile.write((inputs + "\n").encode("utf-8"))
+
+
+def supply_input_bare(inputs):
+    """Specifies the input for a test case without adding a newline.
 
     Arguments:
         *inputs: inputs to be used for test case
@@ -395,7 +408,7 @@ def supply_input_file(input_file):
 
 
 def check_output(outputs):
-    """Specifies the expected output for a test case.
+    """Specifies the expected output for a test case (adds newline at end).
 
     Arguments:
         *outputs: outputs to be used for test case
@@ -406,6 +419,20 @@ def check_output(outputs):
 
     with open("expectedoutput", "a") as outfile:
         outfile.write(outputs + "\n")
+
+
+def check_output_bare(outputs):
+    """Specifies the expected output for a test case without adding a newline.
+
+    Arguments:
+        *outputs: outputs to be used for test case
+
+    Returns:
+        None
+    """
+
+    with open("expectedoutput", "a") as outfile:
+        outfile.write(outputs)
 
 
 def check_output_file(output_file):
@@ -425,7 +452,7 @@ def check_output_file(output_file):
 
 
 def check_error(error_output):
-    """Specifies the expected error output for a test case.
+    """Specifies the expected error output for a test case (adds newline at end).
 
     Arguments:
         error_output: expected error output for a test case
@@ -435,6 +462,19 @@ def check_error(error_output):
     """
     with open("expectederror", "a") as outfile:
         outfile.write(error_output + "\n")
+
+
+def check_error_bare(error_output):
+    """Specifies the expected error output for a test case without adding a newline.
+
+    Arguments:
+        error_output: expected error output for a test case
+
+    Returns:
+        None
+    """
+    with open("expectederror", "a") as outfile:
+        outfile.write(error_output)
 
 
 def hint(hints):
@@ -536,10 +576,13 @@ tag_func_map = {
     "T": test_case,
     "HT": test_case_hidden,
     "I": supply_input,
+    "IB": supply_input_bare,
     "IF": supply_input_file,
     "O": check_output,
+    "OB": check_output_bare,
     "OF": check_output_file,
     "E": check_error,
+    "EB": check_error_bare,
     "HINT": hint,
     "TO": timeout,
     "X": exit_code,
