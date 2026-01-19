@@ -627,6 +627,8 @@ def parse_tags(tags: list[str]):
     tag_only_pattern = r"([A-Z_]+)\s*$"
 
     valid_tags = set(tag_func_map.keys())
+    # Tags to silently ignore (used by other tools but not by run-evaluation)
+    ignored_tags = {"CTO", "Z", "RUN"}
 
     # Track if we're inside a CRT_HW block (content to ignore)
     in_crt_hw_block = False
@@ -652,6 +654,9 @@ def parse_tags(tags: list[str]):
         # Check for tag without arguments
         if tag_only_match and not tag_match:
             tag = tag_only_match.group(1)
+            # Skip ignored tags
+            if tag in ignored_tags:
+                continue
             if tag in valid_tags:
                 print(f"Error on line {line_num}: Tag '{tag}' requires arguments")
                 print(f"  {line_num}: {tag_line.rstrip()}")
@@ -669,6 +674,9 @@ def parse_tags(tags: list[str]):
             potential_tag = re.match(r"([A-Z]+)", tag_line)
             if potential_tag:
                 tag = potential_tag.group(1)
+                # Skip ignored tags
+                if tag in ignored_tags:
+                    continue
                 if tag not in valid_tags and len(tag) <= 4:
                     print(f"Error on line {line_num}: Unknown tag '{tag}'")
                     print(f"  {line_num}: {tag_line.rstrip()}")
@@ -678,6 +686,10 @@ def parse_tags(tags: list[str]):
 
         tag = tag_match.group(1)
         args = tag_match.group(2)
+
+        # Skip ignored tags
+        if tag in ignored_tags:
+            continue
 
         # Check for unknown tag
         if tag not in valid_tags:
