@@ -1,5 +1,7 @@
 import os
+import re
 import traceback
+from configparser import ConfigParser
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
@@ -23,12 +25,29 @@ def get_codeval_folder(course):
     exit(2)
 
 
+def extract_file_macros(specname):
+    """Extract all FILE[filename] macros from the markdown portion of a codeval spec file."""
+    file_macros = []
+    in_assignment = False
+    with open(specname, 'r') as f:
+        for line in f:
+            if 'CRT_HW START' in line:
+                in_assignment = True
+            elif 'CRT_HW END' in line:
+                in_assignment = False
+            elif in_assignment:
+                # Find all FILE[filename] patterns in this line
+                matches = re.findall(r'FILE\[([^]]+)]', line)
+                file_macros.extend(matches)
+    return file_macros
+
+
 def upload_assignment_files(folder, files):
     global file_dict
     for file in files:
         if get_config().dry_run:
             info(f'would upload the {file}')
-            file_dict[file] = f"http://bogus/{file}"
+            file_dict[os.path.basename(file)] = f"http://bogus/{file}"
         else:
             try:
                 file_spec = folder.upload(file)
@@ -90,6 +109,16 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
         errorWithException(f'get_course api failed with following error : {e}')
     else:
         debug(f'Successfully retrieved the course: {course_name}')
+
+    # Check if course has a GITHUB entry in config
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    gh_key = course.name.replace(":", "").replace("=", "")
+    has_github = 'GITHUB' in parser and gh_key in parser['GITHUB']
+    if has_github:
+        debug(f'Found GITHUB entry for course, will use online_text_entry submission type')
+
     canvas_folder = get_codeval_folder(course)
     if extra:
         upload_assignment_files(canvas_folder, extra)
@@ -100,6 +129,28 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
                 zipfile = line[2:].strip()
                 if zipfile not in zip_files:
                     zip_files.append(zipfile)
+
+    # Extract FILE macros and upload local files that exist
+    spec_dir = os.path.dirname(os.path.abspath(specname))
+    file_macros = extract_file_macros(specname)
+    for filename in file_macros:
+        if filename not in file_dict:
+            local_path = os.path.join(spec_dir, filename)
+            if os.path.isfile(local_path):
+                debug(f'Found local file for FILE[{filename}]: {local_path}')
+                upload_assignment_files(canvas_folder, [local_path])
+            else:
+                # Look for the file in zip files
+                for z in zip_files:
+                    with ZipFile(z) as zf:
+                        matches = [f for f in zf.namelist() if os.path.basename(f) == filename]
+                        if matches:
+                            zfname = matches[0]
+                            with TemporaryDirectory("ce") as tmpdir:
+                                extracted_path = zf.extract(zfname, path=tmpdir)
+                                debug(f'Found FILE[{filename}] in zip {z}: {zfname}')
+                                upload_assignment_files(canvas_folder, [extracted_path])
+                            break
 
     debug(f'Successfully uploaded the files in the CodEval folder')
     try:
@@ -131,9 +182,15 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
                         if discussion.title == assign_name:
                             disUrlHtml = f'<a href={discussion.html_url}>{discussion.title}</a>'
                     try:
-                        assignment.edit(assignment={'name': assign_name, 'assignment_group_id': grp_name.id,
-                                                    'description': html.replace("DISCUSSION_LINK", disUrlHtml),
-                                                    'points_possible': 100, 'allowed_extensions': ["zip"], })
+                        edit_params = {'name': assign_name, 'assignment_group_id': grp_name.id,
+                                       'description': html.replace("DISCUSSION_LINK", disUrlHtml),
+                                       'points_possible': 100}
+                        if has_github:
+                            edit_params['submission_types'] = ["online_text_entry"]
+                        else:
+                            edit_params['submission_types'] = ["online_upload"]
+                            edit_params['allowed_extensions'] = ["zip"]
+                        assignment.edit(assignment=edit_params)
                     except Exception as e:
                         traceback.print_exc()
                         errorWithException(f'Editing assignment {assign_name} failed with the exception : {e}')
@@ -151,12 +208,15 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
                 # get the url of the discussion topic
                 disUrlHtml = f'<a href={dis_topic.html_url}>{dis_topic.title}</a>'
                 # Create the assignment with the assign_name
-                created_assignment = course.create_assignment({'name': assign_name, 'assignment_group_id': grp_name.id,
-                                                               'description': html.replace("DISCUSSION_LINK",
-                                                                                           disUrlHtml),
-                                                               'points_possible': 100, 'published': False,
-                                                               'submission_types': ["online_upload"],
-                                                               'allowed_extensions': ["zip"], })
+                assignment_params = {'name': assign_name, 'assignment_group_id': grp_name.id,
+                                     'description': html.replace("DISCUSSION_LINK", disUrlHtml),
+                                     'points_possible': 100, 'published': False}
+                if has_github:
+                    assignment_params['submission_types'] = ["online_text_entry"]
+                else:
+                    assignment_params['submission_types'] = ["online_upload"]
+                    assignment_params['allowed_extensions'] = ["zip"]
+                created_assignment = course.create_assignment(assignment_params)
                 debug(f'Created new assignment: {assign_name}')
                 # Update the discussion topic with the assignment link
                 dis_topic.update(

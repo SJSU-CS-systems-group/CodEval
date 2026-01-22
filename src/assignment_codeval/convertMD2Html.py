@@ -49,10 +49,18 @@ def mdToHtml(file_name, files_resolver=None):
                 text = text + line
         samples = sampleTestCases(examples, numOfSampleTC)
         assignment = re.sub('EXMPLS [0-9]+', samples, assignment)
-        assignment = re.sub(r'FILE\[([^]]+)]',
-                            lambda m: files_resolver(m.group(1)) if files_resolver else f'FILE[{m.group(1)}]',
+        # Handle FILE macros in two passes:
+        # 1. FILE inside markdown link syntax: [text](FILE[name]) -> [text](url)
+        assignment = re.sub(r'\]\(FILE\[([^]]+)]\)',
+                            lambda m: f']({files_resolver(m.group(1))})' if files_resolver else f'](FILE[{m.group(1)}])',
                             assignment)
-        html = markdown.markdown(assignment, extensions=['markdown.extensions.tables'])
+        # 2. Standalone FILE macros: FILE[name] -> [name](url)
+        assignment = re.sub(r'FILE\[([^]]+)]',
+                            lambda m: f'[{m.group(1)}]({files_resolver(m.group(1))})' if files_resolver else f'FILE[{m.group(1)}]',
+                            assignment)
+        html = markdown.markdown(assignment,
+                                 extensions=['mdx_better_lists', 'extra'],
+                                 extension_configs={'mdx_better_lists': {'split_paragraph_lists': True}})
 
     if get_config().dry_run:
         html_file_name = file_name + '.html'
