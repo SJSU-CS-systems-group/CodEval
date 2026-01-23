@@ -178,9 +178,20 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
                 if dryrun:
                     info(f"would update {assign_name}.")
                 else:
+                    disUrlHtml = ""
                     for discussion in course.get_discussion_topics():
                         if discussion.title == assign_name:
                             disUrlHtml = f'<a href={discussion.html_url}>{discussion.title}</a>'
+                            break
+                    # Create discussion topic if it doesn't exist
+                    if not disUrlHtml:
+                        dis_topic = course.create_discussion_topic(title=assign_name, message="")
+                        debug(f'Created Discussion Topic: {assign_name}')
+                        disUrlHtml = f'<a href={dis_topic.html_url}>{dis_topic.title}</a>'
+                        # Update discussion with assignment link
+                        dis_topic.update(
+                            message=f'This Discussion is for Assignment <a href={assignment.html_url}>{assign_name}</a>')
+                        debug(f'Updated the Discussion Topic by linking it with the corresponding assignment: {assign_name}')
                     try:
                         edit_params = {'name': assign_name, 'assignment_group_id': grp_name.id,
                                        'description': html.replace("DISCUSSION_LINK", disUrlHtml),

@@ -16,6 +16,13 @@ from assignment_codeval.file_utils import unzip
 # Globals
 ###########################################################
 
+TESTING_DIR = ".testing"
+
+
+def get_testing_path(filename: str) -> str:
+    """Return the path to a file in the testing directory."""
+    return os.path.join(TESTING_DIR, filename)
+
 
 test_args = ""
 cmps = []
@@ -48,7 +55,7 @@ def compile_code(compile_command):
         check_test()
 
     # Run compile command
-    with open("compilelog", "w") as outfile:
+    with open(get_testing_path("compilelog"), "w") as outfile:
         compile_popen = subprocess.Popen(
             compile_command, shell=True, stdout=outfile, stderr=outfile, text=True
         )
@@ -56,7 +63,7 @@ def compile_code(compile_command):
     compile_popen.communicate(compile_popen)
 
     if compile_popen.returncode:
-        with open("compilelog", "r") as infile:
+        with open(get_testing_path("compilelog"), "r") as infile:
             compile_log = infile.readlines()
 
         # Print head of compile log
@@ -284,9 +291,10 @@ def run_command_noerror(command):
 
     if command_popen.returncode:
         print("FAILED")
-        if os.path.exists("evaluationLogs"):
-            for file in os.listdir("evaluationLogs"):
-                with open(file, "r") as infile:
+        eval_logs_dir = get_testing_path("evaluationLogs")
+        if os.path.exists(eval_logs_dir):
+            for file in os.listdir(eval_logs_dir):
+                with open(os.path.join(eval_logs_dir, file), "r") as infile:
                     file_lines = infile.readlines()
                 # Print entire file
                 print("\n".join(file_lines))
@@ -374,7 +382,7 @@ def supply_input(inputs):
     Returns:
         None
     """
-    with open("fileinput", "ab") as outfile:
+    with open(get_testing_path("fileinput"), "ab") as outfile:
         outfile.write((inputs + "\n").encode("utf-8"))
 
 
@@ -387,7 +395,7 @@ def supply_input_bare(inputs):
     Returns:
         None
     """
-    with open("fileinput", "ab") as outfile:
+    with open(get_testing_path("fileinput"), "ab") as outfile:
         outfile.write(inputs.encode("utf-8"))
 
 
@@ -403,7 +411,7 @@ def supply_input_file(input_file):
     with open(input_file, "rb") as infile:
         input_data = infile.read()
 
-    with open("fileinput", "ab") as outfile:
+    with open(get_testing_path("fileinput"), "ab") as outfile:
         outfile.write(input_data)
 
 
@@ -417,7 +425,7 @@ def check_output(outputs):
         None
     """
 
-    with open("expectedoutput", "a") as outfile:
+    with open(get_testing_path("expectedoutput"), "a") as outfile:
         outfile.write(outputs + "\n")
 
 
@@ -431,7 +439,7 @@ def check_output_bare(outputs):
         None
     """
 
-    with open("expectedoutput", "a") as outfile:
+    with open(get_testing_path("expectedoutput"), "a") as outfile:
         outfile.write(outputs)
 
 
@@ -447,7 +455,7 @@ def check_output_file(output_file):
     with open(output_file, "r") as infile:
         output_lines = infile.readlines()
 
-    with open("expectedoutput", "a") as outfile:
+    with open(get_testing_path("expectedoutput"), "a") as outfile:
         outfile.writelines(output_lines)
 
 
@@ -460,7 +468,7 @@ def check_error(error_output):
     Returns:
         None
     """
-    with open("expectederror", "a") as outfile:
+    with open(get_testing_path("expectederror"), "a") as outfile:
         outfile.write(error_output + "\n")
 
 
@@ -473,7 +481,7 @@ def check_error_bare(error_output):
     Returns:
         None
     """
-    with open("expectederror", "a") as outfile:
+    with open(get_testing_path("expectederror"), "a") as outfile:
         outfile.write(error_output)
 
 
@@ -535,7 +543,7 @@ def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
     )
 
     # Send output to compile log in background
-    with open("compilelog", "w") as outfile:
+    with open(get_testing_path("compilelog"), "w") as outfile:
         server_popen = subprocess.Popen(
             server_cmd, shell=True, stdout=outfile, stderr=outfile, text=True
         )
@@ -601,9 +609,10 @@ def setup():
         "youroutput",
     ]
     cleanup()
-    # Create files
+    # Create testing directory and files
+    os.makedirs(TESTING_DIR, exist_ok=True)
     for file in files:
-        open(file, "w").close()
+        open(get_testing_path(file), "w").close()
 
     # Reset test case variables
     global expected_exit_code
@@ -730,18 +739,20 @@ def parse_tags(tags: list[str]):
             sys.exit(1)
 
 
-def parse_diff(diff_lines: list[str]):
+def parse_diff(diff_lines: list[str], testing_dir: str):
     """Given output from diff command, parse lines into console
 
     Arguments:
-        parse_diff (list[str]): list of lines as output from diff command
+        diff_lines (list[str]): list of lines as output from diff command
+        testing_dir (str): directory to create evaluationLogs in
 
     Returns:
         None
     """
-    os.makedirs("evaluationLogs", exist_ok=True)
+    eval_logs_dir = os.path.join(testing_dir, "evaluationLogs")
+    os.makedirs(eval_logs_dir, exist_ok=True)
     # Directly write into logOfDiff rather than use redirection
-    with open("evaluationLogs/logOfDiff", "w") as outfile:
+    with open(os.path.join(eval_logs_dir, "logOfDiff"), "w") as outfile:
         for line in diff_lines:
             first_word = line.split(" ")[:2]
             first_character = first_word[0]
@@ -770,9 +781,9 @@ def check_test():
     print(f"Test case {test_case_count} of {test_case_total}")
     passed = True
 
-    with open("fileinput", "rb") as fileinput, open(
-        "youroutput", "w"
-    ) as youroutput, open("yourerror", "w") as yourerror:
+    with open(get_testing_path("fileinput"), "rb") as fileinput, open(
+        get_testing_path("youroutput"), "w"
+    ) as youroutput, open(get_testing_path("yourerror"), "w") as yourerror:
         test_exec = subprocess.Popen(
             test_args, shell=True, stdin=fileinput, stdout=youroutput, stderr=yourerror
         )
@@ -786,9 +797,9 @@ def check_test():
         passed = False
 
     # Difflog handling
-    with open("difflog", "w") as outfile:
+    with open(get_testing_path("difflog"), "w") as outfile:
         diff_popen = subprocess.Popen(
-            "diff -U1 -a ./youroutput ./expectedoutput | cat -te | head -22",
+            f"diff -U1 -a ./{TESTING_DIR}/youroutput ./{TESTING_DIR}/expectedoutput | cat -te | head -22",
             shell=True,
             stdout=outfile,
             stderr=outfile,
@@ -797,9 +808,9 @@ def check_test():
         diff_popen.communicate()
 
     # Append to difflog second time around
-    with open("difflog", "a") as outfile:
+    with open(get_testing_path("difflog"), "a") as outfile:
         diff_popen = subprocess.Popen(
-            "diff -U1 -a ./yourerror ./expectederror | cat -te | head -22",
+            f"diff -U1 -a ./{TESTING_DIR}/yourerror ./{TESTING_DIR}/expectederror | cat -te | head -22",
             shell=True,
             stdout=outfile,
             stderr=outfile,
@@ -808,12 +819,12 @@ def check_test():
         diff_popen.communicate()
 
     # Now read all the lines to accumulate both diffs
-    with open("difflog", "r") as infile:
+    with open(get_testing_path("difflog"), "r") as infile:
         diff_lines = infile.readlines()
 
     if len(diff_lines):
         passed = False
-        parse_diff(diff_lines)
+        parse_diff(diff_lines, TESTING_DIR)
 
     # Exit code handling
     if expected_exit_code != -1 and test_exec.returncode != expected_exit_code:
@@ -851,9 +862,10 @@ def check_test():
 
             # Cleanup
             print(f"    Command ran: {test_args}")
-            if os.path.exists("evaluationLogs"):
-                for file in os.listdir("evaluationLogs"):
-                    with open("evaluationLogs/" + file, "r") as infile:
+            eval_logs_dir = get_testing_path("evaluationLogs")
+            if os.path.exists(eval_logs_dir):
+                for file in os.listdir(eval_logs_dir):
+                    with open(os.path.join(eval_logs_dir, file), "r") as infile:
                         file_lines = infile.readlines()
 
                     # Print entire file
@@ -881,14 +893,21 @@ def cleanup():
         "youroutput",
     ]
 
-    if os.path.exists("evaluationLogs"):
-        if os.path.exists("evaluationLogs/logOfDiff"):
-            os.remove("evaluationLogs/logOfDiff")
-            os.rmdir("evaluationLogs")
+    eval_logs_dir = get_testing_path("evaluationLogs")
+    if os.path.exists(eval_logs_dir):
+        log_of_diff = os.path.join(eval_logs_dir, "logOfDiff")
+        if os.path.exists(log_of_diff):
+            os.remove(log_of_diff)
+            os.rmdir(eval_logs_dir)
 
     for name in files:
-        if os.path.exists(name):
-            os.remove(name)
+        file_path = get_testing_path(name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    # Remove the testing directory if it exists and is empty
+    if os.path.exists(TESTING_DIR) and not os.listdir(TESTING_DIR):
+        os.rmdir(TESTING_DIR)
 
 
 @click.command()
