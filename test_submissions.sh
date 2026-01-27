@@ -26,7 +26,8 @@ ASSIGNMENT="$2"
 trap 'rm -rf submissions' EXIT
 
 setfacl -d -m u:$(whoami):rwX .
-assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT" --uncommented_for 60
+ulimit -f 1000000
+assignment-codeval download-submissions "$COURSE" "$ASSIGNMENT" --uncommented_for 20
 assignment-codeval github-setup-repo "$COURSE" "$ASSIGNMENT"
 assignment-codeval evaluate-submissions ~/codeval
 assignment-codeval upload-submission-comments submissions

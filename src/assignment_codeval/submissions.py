@@ -135,6 +135,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 try:
                     out, err = p.communicate(timeout=compile_timeout)
                 except subprocess.TimeoutExpired:
+                    error(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n")
                     p.kill()
                     out, err = p.communicate()
                     out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
