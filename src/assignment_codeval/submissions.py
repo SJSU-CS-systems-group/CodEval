@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from configparser import ConfigParser
 from datetime import datetime, timezone
 from functools import cache
@@ -127,25 +128,27 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 submission_link = os.path.join(link_dir, "submissions")
                 os.symlink(submission_dir, submission_link)
                 full_assignment_working_dir = os.path.join(submission_link, assignment_working_dir)
-                shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
+                if not os.path.isdir(full_assignment_working_dir):
+                    out = b"no submission directory found"
+                else:
+                    shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
 
-                command = command.replace("SUBMISSIONS", full_assignment_working_dir)
-                info(f"command to execute: {command}")
-                p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                try:
-                    out, err = p.communicate(timeout=compile_timeout)
-                except subprocess.TimeoutExpired:
-                    error(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n")
-                    p.kill()
-                    out, err = p.communicate()
-                    out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
-                except Exception as e:
-                    error(f"exception {e} running evaluation for {dirpath}")
-                    p.kill()
-                    out, err = p.communicate()
-                    out += bytes(f"\nFAILED with exception {e}\n", encoding='utf-8')
-                finally:
-                    info("finished executing docker")
+                    command = command.replace("SUBMISSIONS", full_assignment_working_dir)
+                    info(f"command to execute: {command}")
+                    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    try:
+                        out, err = p.communicate(timeout=compile_timeout)
+                    except subprocess.TimeoutExpired:
+                        p.kill()
+                        out, err = p.communicate()
+                        out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
+                    except Exception as e:
+                        error(f"exception {e} running evaluation for {dirpath}")
+                        p.kill()
+                        out, err = p.communicate()
+                        out += bytes(f"\nFAILED with exception {e}\n", encoding='utf-8')
+                    finally:
+                        info("finished executing docker")
 
         info("writing results")
         with open(f"{dirpath}/comments.txt", "wb") as fd:
