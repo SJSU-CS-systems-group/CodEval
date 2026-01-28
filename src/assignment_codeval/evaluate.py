@@ -637,7 +637,7 @@ def parse_tags(tags: list[str]):
 
     valid_tags = set(tag_func_map.keys())
     # Tags to silently ignore (used by other tools but not by run-evaluation)
-    ignored_tags = {"CTO", "Z", "RUN"}
+    ignored_tags = {"CD", "CTO", "Z", "RUN"}
 
     # Track if we're inside a CRT_HW block (content to ignore)
     in_crt_hw_block = False
