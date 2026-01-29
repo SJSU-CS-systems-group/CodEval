@@ -221,6 +221,18 @@ attempt={submission.attempt}
 late={submission.late}
 date={submission.submitted_at}
 last_comment={last_comment_date}""", file=fd)
+
+        # Save the last comment (any comment, not just codeval ones) to last-comment.txt
+        if submission.submission_comments:
+            all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
+            last_comment = all_comments[-1]
+            last_comment_path = os.path.join(student_submission_dir, "last-comment.txt")
+            with open(last_comment_path, "w") as fd:
+                print(f"date={last_comment['created_at']}", file=fd)
+                print(f"author={last_comment.get('author_name', 'unknown')}", file=fd)
+                print("", file=fd)
+                print(last_comment.get('comment', ''), file=fd)
+
         body = submission.body
         if body:
             filepath = os.path.join(student_submission_dir, "content.txt")
