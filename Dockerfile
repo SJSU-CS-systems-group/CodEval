@@ -5,6 +5,8 @@ RUN apt-get -y install openjdk-21-jdk
 RUN apt-get -y install gawk
 RUN apt-get -y install git
 RUN apt-get -y install iproute2
+RUN apt-get -y install  g++-14
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
 
 # Install maven 3.8.6 for compatibility with jdk 17
 RUN apt-get -y install wget
