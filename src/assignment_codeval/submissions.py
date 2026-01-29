@@ -322,3 +322,46 @@ def get_submissions_by_id(assignment):
         student_id = str(submission.user_id)
         submissions_by_id[student_id] = submission
     return submissions_by_id
+
+
+@click.command()
+@click.argument("course_name", metavar="COURSE", required=False)
+def list_codeval_assignments(course_name):
+    """
+    List all assignments that have corresponding codeval files.
+
+    Optionally filter by COURSE (partial name match).
+    Reports errors for codeval files that don't match any assignment.
+    """
+    # Load codeval directory from config
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+        raise click.UsageError(f"[CODEVAL] section with directory= is required in {config_file}")
+    codeval_dir = parser['CODEVAL']['directory']
+
+    if not os.path.isdir(codeval_dir):
+        raise click.UsageError(f"CODEVAL directory does not exist: {codeval_dir}")
+
+    # Get all codeval files in the directory
+    codeval_files = {f[:-8] for f in os.listdir(codeval_dir) if f.endswith('.codeval')}
+    matched_codeval_files = set()
+
+    (canvas, user) = connect_to_canvas()
+    courses = get_courses(canvas, course_name or "", is_active=True)
+    if not courses:
+        error("no active courses found")
+        return
+
+    for course in courses:
+        for assignment in course.get_assignments():
+            assignment_key = despace(assignment.name)
+            if assignment_key in codeval_files:
+                matched_codeval_files.add(assignment_key)
+                info(f"{course.name}: {assignment.name}")
+
+    # Report codeval files that don't match any assignment
+    unmatched = codeval_files - matched_codeval_files
+    for codeval_name in sorted(unmatched):
+        error(f"codeval file has no matching assignment: {codeval_name}.codeval")
