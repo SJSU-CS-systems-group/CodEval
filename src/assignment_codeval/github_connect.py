@@ -1,4 +1,4 @@
-import os.path
+import os
 import re
 import subprocess
 from configparser import ConfigParser
@@ -13,8 +13,8 @@ HEX_DIGITS = "0123456789abcdefABCDEF"
 
 
 @click.command()
-@click.argument("course_name", metavar="COURSE")
-@click.argument("assignment_name", metavar="ASSIGNMENT")
+@click.argument("course_name", metavar="COURSE", required=False)
+@click.argument("assignment_name", metavar="ASSIGNMENT", required=False)
 @click.option("--all-repos", is_flag=True,
               help="download all repositories, even if they don't have a valid commit hash")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
@@ -28,14 +28,47 @@ def github_setup_repo(course_name, assignment_name, target_dir, github_field, al
 
     COURSE can be a unique substring of the actual course name.
 
+    If COURSE and ASSIGNMENT are not specified, will process all course/assignment
+    subdirectories found in the submissions directory.
     """
     canvas, user = connect_to_canvas()
     parser = ConfigParser()
     config_file = click.get_app_dir("codeval.ini")
     parser.read(config_file)
     parser.config_file = config_file
-    course = get_course(canvas, course_name, True)
-    assignment = get_assignment(course, assignment_name)
+
+    if course_name and assignment_name:
+        # Explicit course and assignment specified
+        course = get_course(canvas, course_name, True)
+        assignment = get_assignment(course, assignment_name)
+        _setup_repo_for_assignment(
+            canvas, parser, course, assignment, target_dir, github_field, all_repos, clone_delay
+        )
+    elif course_name or assignment_name:
+        raise click.UsageError("Both COURSE and ASSIGNMENT must be specified, or neither")
+    else:
+        # Scan submissions directory for course/assignment subdirectories
+        if not os.path.isdir(target_dir):
+            error(f"submissions directory {target_dir} does not exist")
+            return
+        for course_dir in sorted(os.listdir(target_dir)):
+            course_path = os.path.join(target_dir, course_dir)
+            if not os.path.isdir(course_path):
+                continue
+            for assignment_dir in sorted(os.listdir(course_path)):
+                assignment_path = os.path.join(course_path, assignment_dir)
+                if not os.path.isdir(assignment_path):
+                    continue
+                info(f"processing {course_dir}/{assignment_dir}")
+                course = get_course(canvas, course_dir, True)
+                assignment = get_assignment(course, assignment_dir)
+                _setup_repo_for_assignment(
+                    canvas, parser, course, assignment, target_dir, github_field, all_repos, clone_delay
+                )
+
+
+def _setup_repo_for_assignment(canvas, parser, course, assignment, target_dir, github_field, all_repos, clone_delay):
+    """Set up GitHub repos for a single assignment."""
     submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
 
