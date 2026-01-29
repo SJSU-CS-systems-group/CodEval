@@ -191,8 +191,18 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
         if not courses:
             error("no active courses found")
             return
+
+        # Load config to check which courses use GitHub
+        parser = ConfigParser()
+        config_file = click.get_app_dir("codeval.ini")
+        parser.read(config_file)
+
         now = datetime.now(timezone.utc)
         for course in courses:
+            # Check if course uses GitHub
+            gh_key = course.name.replace(":", "").replace("=", "")
+            has_github = 'GITHUB' in parser and gh_key in parser['GITHUB']
+
             for assignment in course.get_assignments():
                 if assignment_name and assignment_name.lower() not in despace(assignment.name).lower():
                     continue
@@ -205,6 +215,18 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
                     window = timedelta(hours=until_window)
                     if lock_at + window < now:
                         continue  # past the until window
+
+                # Filter by submission type based on whether course uses GitHub
+                submission_types = getattr(assignment, 'submission_types', [])
+                if has_github:
+                    # For GitHub courses, only look at text_entry submissions
+                    if "online_text_entry" not in submission_types:
+                        continue
+                else:
+                    # For non-GitHub courses, only look at file upload submissions
+                    if "online_upload" not in submission_types:
+                        continue
+
                 info(f"downloading submissions for {course.name}: {assignment.name}")
                 _download_assignment_submissions(
                     course, assignment, target_dir, include_commented, codeval_prefix,
