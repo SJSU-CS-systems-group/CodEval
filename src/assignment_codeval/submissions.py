@@ -151,7 +151,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         info("finished executing docker")
 
         info("writing results")
-        with open(f"{dirpath}/comments.txt", "wb") as fd:
+        with open(f"{dirpath}/comments.txt", "ab") as fd:
             fd.write(out)
         info("continuing")
 
