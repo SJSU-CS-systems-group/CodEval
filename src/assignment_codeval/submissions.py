@@ -187,6 +187,14 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
     (canvas, user) = connect_to_canvas()
 
     if active:
+        # Load codeval directory from config
+        parser = ConfigParser()
+        config_file = click.get_app_dir("codeval.ini")
+        parser.read(config_file)
+        if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+            raise click.UsageError(f"[CODEVAL] section with directory= is required in {config_file}")
+        codeval_dir = parser['CODEVAL']['directory']
+
         courses = get_courses(canvas, course_name or "", is_active=True)
         if not courses:
             error("no active courses found")
@@ -210,6 +218,11 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
                 # Filter by submission type: only text_entry (GitHub) or file upload assignments
                 submission_types = getattr(assignment, 'submission_types', [])
                 if "online_text_entry" not in submission_types and "online_upload" not in submission_types:
+                    continue
+
+                # Only download if a corresponding codeval file exists
+                codeval_file = os.path.join(codeval_dir, f"{despace(assignment.name)}.codeval")
+                if not os.path.exists(codeval_file):
                     continue
 
                 info(f"downloading submissions for {course.name}: {assignment.name}")
