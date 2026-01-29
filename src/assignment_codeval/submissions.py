@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import time
 from configparser import ConfigParser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -12,7 +12,7 @@ from zipfile import ZipFile
 import click
 import requests
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_assignment
+from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_courses, get_assignment
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
@@ -157,8 +157,11 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 
 
 @click.command()
-@click.argument("course_name", metavar="COURSE")
-@click.argument("assignment_name", metavar="ASSIGNMENT")
+@click.argument("course_name", metavar="COURSE", required=False)
+@click.argument("assignment_name", metavar="ASSIGNMENT", required=False)
+@click.option("--active", is_flag=True, help="download from all active assignments in all active courses")
+@click.option("--until-window", default=24, show_default=True,
+              help="hours after the until date to still consider an assignment active")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
 @click.option("--include-commented", is_flag=True,
               help="even download submissionsthat already have codeval comments since last submission")
@@ -168,17 +171,58 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
 @click.option("--for-name", help="only download submissions for this student name")
-def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty,
-                         uncommented_for, for_name):
+def download_submissions(course_name, assignment_name, active, until_window, target_dir, include_commented,
+                         codeval_prefix, include_empty, uncommented_for, for_name):
     """
     Download submissions for a given assignment in a course from Canvas.
 
-    the COURSE and ASSIGNMENT arguments can be partial names.
+    The COURSE and ASSIGNMENT arguments can be partial names.
+
+    Use --active to download from all active assignments in all active courses
+    (COURSE and ASSIGNMENT are not required when --active is used).
     """
+    if not active and (not course_name or not assignment_name):
+        raise click.UsageError("COURSE and ASSIGNMENT are required unless --active is specified")
+
     (canvas, user) = connect_to_canvas()
+
+    if active:
+        courses = get_courses(canvas, course_name or "", is_active=True)
+        if not courses:
+            error("no active courses found")
+            return
+        now = datetime.now(timezone.utc)
+        for course in courses:
+            for assignment in course.get_assignments():
+                if assignment_name and assignment_name.lower() not in despace(assignment.name).lower():
+                    continue
+                # Check if assignment is active: availability date passed and until date + window not passed
+                unlock_at = getattr(assignment, 'unlock_at_date', None)
+                lock_at = getattr(assignment, 'lock_at_date', None)
+                if unlock_at and unlock_at > now:
+                    continue  # not yet available
+                if lock_at:
+                    window = timedelta(hours=until_window)
+                    if lock_at + window < now:
+                        continue  # past the until window
+                info(f"downloading submissions for {course.name}: {assignment.name}")
+                _download_assignment_submissions(
+                    course, assignment, target_dir, include_commented, codeval_prefix,
+                    include_empty, uncommented_for, for_name
+                )
+        return
 
     course = get_course(canvas, course_name)
     assignment = get_assignment(course, assignment_name)
+    _download_assignment_submissions(
+        course, assignment, target_dir, include_commented, codeval_prefix,
+        include_empty, uncommented_for, for_name
+    )
+
+
+def _download_assignment_submissions(course, assignment, target_dir, include_commented, codeval_prefix,
+                                     include_empty, uncommented_for, for_name):
+    """Download submissions for a single assignment."""
     submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
 
