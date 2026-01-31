@@ -14,14 +14,18 @@ src/assignment_codeval/
 ├── github_connect.py   # GitHub repository setup and integration
 ├── canvas_utils.py     # Canvas API utilities
 ├── ai_benchmark.py     # AI model testing (test-with-ai)
+├── install_assignment.py # Install codeval files to local/remote destinations
+├── recent_comments.py  # List recent codeval comments on Canvas
 ├── convertMD2Html.py   # Markdown to HTML conversion
 ├── commons.py          # Shared utilities
 └── file_utils.py       # File handling utilities
 
 tests/
-├── test_codeval.py         # Main test suite (27 tests)
+├── test_codeval.py           # Main test suite
 ├── test_create_assignment.py # Assignment creation tests
-└── sample_*.py             # Sample programs for testing
+├── test_evaluate_submissions.py # Evaluate submissions tests
+├── test_install_assignment.py # Install assignment tests
+└── sample_*.py               # Sample programs for testing
 ```
 
 # CLI Commands
@@ -37,6 +41,8 @@ The CLI is `assignment-codeval` with these subcommands:
 | `upload-submission-comments` | Upload grading comments to Canvas |
 | `github-setup-repo` | Connect GitHub repo for assignment |
 | `list-codeval-assignments` | List assignments with codeval specs |
+| `install-assignment` | Copy codeval file and zip dependencies to local/remote path |
+| `recent-comments` | List recent codeval comments on Canvas submissions |
 | `test-with-ai` | Benchmark AI models on assignments |
 
 # Common Commands
