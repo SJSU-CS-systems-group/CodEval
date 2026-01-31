@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.18
+
+- Make CODEVAL_DIR argument optional in evaluate-submissions; uses [CODEVAL] directory from config if not specified
+
 ## 0.0.17
 
 - Fix GitHub detection to check .git at submission root instead of nested directory
