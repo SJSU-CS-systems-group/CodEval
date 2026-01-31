@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.17
+
+- Fix GitHub detection to check .git at submission root instead of nested directory
+
 ## 0.0.16
 
 - Add install-assignment command to copy codeval files and zip dependencies to local or remote destinations
