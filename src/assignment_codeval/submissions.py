@@ -46,25 +46,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                     with open(f"{dirpath}/comments.txt", "r") as fd:
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                            #https://canvasapi.readthedocs.io/en/stable/submission-ref.html?highlight=upload_comment#canvasapi.submission.Submission.upload_comment
-
-                            success, response = submission.upload_comment(f"{dirpath}/comments.txt")
-                            '''
-                            line 51 uploads comments.txt sucessfully
-                            note: canvas api does not allow editing of previous comment to upload a new file! in order to upload a new file, canvas HAS to create a new comment
-                            #the lines below analyze the metadata of the first comment to see if canvas api allows editing the text portion of a comment 
-                            '''
-                            filename = "metadata.txt"
-                            comm_id = submission.submission_comments[0]["id"]
-                            comm_text = submission.submission_comments[0]["comment"]
-                            comm_att = submission.submission_comments[0]["attachments"]
-                            with open(filename, "w") as f:
-                                f.write("METADATA OF FIRST COMMENT ----\ncomment text:\n" + str( comm_text) + "\ncomment attachment:\n" + str( comm_att))
-                            success, response = submission.upload_comment(filename)
-                            # implement this in REST API PUT -> submission.post(comm_id["comment"] = "//new comment")
-                                
-                            # PREVIOUS CODE:submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
-
+                            success, response = submission.upload_comment( f"{dirpath}/comments.txt")
    
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
