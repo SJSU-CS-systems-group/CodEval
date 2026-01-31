@@ -5,6 +5,7 @@ from assignment_codeval.create_assignment import create_assignment
 from assignment_codeval.evaluate import run_evaluation
 from assignment_codeval.github_connect import github_setup_repo
 from assignment_codeval.install_assignment import install_assignment
+from assignment_codeval.recent_comments import recent_comments
 from assignment_codeval.submissions import download_submissions, upload_submission_comments, evaluate_submissions, list_codeval_assignments
 
 
@@ -20,6 +21,7 @@ cli.add_command(evaluate_submissions)
 cli.add_command(create_assignment)
 cli.add_command(list_codeval_assignments)
 cli.add_command(install_assignment)
+cli.add_command(recent_comments)
 cli.add_command(get_benchmark_command())
 
 if __name__ == "__main__":
