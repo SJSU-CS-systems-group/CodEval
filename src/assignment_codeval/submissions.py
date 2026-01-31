@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
-
 import click
 import requests
 
@@ -41,20 +40,20 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                 if "comments.txt.sent" in filenames:
                     info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
                 else:
+                    #uploads 'comments.txt' as an attachment to a new comment!
                     info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read()
-                        # nulls seem to be very problematic for canvas
-                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                            submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
+                            success, response = submission.upload_comment( f"{dirpath}/comments.txt")
+   
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
                     with open(f"{dirpath}/comments.txt.sent", "w") as fd:
                         fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+
 
 
 @click.command()
@@ -331,8 +330,9 @@ last_comment={last_comment_date}""", file=fd)
 @cache
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
-    for submission in assignment.get_submissions(include=["user"]):
+    for submission in assignment.get_submissions(include=["user", "submission_comments"]):
         student_id = str(submission.user_id)
+        prev_comments = submission.submission_comments
         submissions_by_id[student_id] = submission
     return submissions_by_id
 
