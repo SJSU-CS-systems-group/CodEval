@@ -58,7 +58,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
 
 
 @click.command()
-@click.argument('codeval_dir', metavar="CODEVAL_DIR")
+@click.argument('codeval_dir', metavar="CODEVAL_DIR", required=False)
 @click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID",
               default='./submissions', show_default=True)
 def evaluate_submissions(codeval_dir, submissions_dir):
@@ -66,11 +66,18 @@ def evaluate_submissions(codeval_dir, submissions_dir):
     Evaluate submissions stored in the form COURSE/ASSIGNMENT/STUDENT_ID.
 
     CODEVAL_DIR specifies a directory that has the codeval files named after the assignment with the .codeval suffix.
+    If not specified, uses the directory from [CODEVAL] section in codeval.ini.
     """
     parser = ConfigParser()
     config_file = click.get_app_dir("codeval.ini")
     parser.read(config_file)
     parser.config_file = config_file
+
+    # Use codeval_dir from config if not specified
+    if not codeval_dir:
+        if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+            raise click.UsageError(f"CODEVAL_DIR not specified and [CODEVAL] section with directory= not found in {config_file}")
+        codeval_dir = parser['CODEVAL']['directory']
 
     raw_command = parser["RUN"]["command"]
     if not raw_command:
