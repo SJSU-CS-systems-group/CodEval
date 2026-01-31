@@ -90,9 +90,11 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             warn(f"no codeval file found for {assignment_name} in {codeval_file}")
             continue
 
-        # get the zipfiles (Z tag) and timeout (CTO tag)
+        # First pass: get CTO, CD tags, and collect Z files (don't extract yet)
         compile_timeout = 20
         assignment_working_dir = "."
+        has_cd_tag = False
+        zip_files = []
         move_to_next_submission = False
         with open(codeval_file, "r") as fd:
             for line in fd:
@@ -103,6 +105,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     except Exception:
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
                 if line.startswith("CD"):
+                    has_cd_tag = True
                     assignment_working_dir = os.path.normpath(
                         os.path.join(assignment_working_dir, line.split()[1].strip()))
                     if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
@@ -110,16 +113,26 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         move_to_next_submission = True
                         break
                 if line.startswith("Z"):
-                    zipfile = line.split(None, 1)[1]
-                    # unzip into the submission directory
-                    with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
-                        for f in zf.infolist():
-                            dest_dir = os.path.join(submission_dir, assignment_working_dir)
-                            zf.extract(f, dest_dir)
-                            if not f.is_dir():
-                                perms = f.external_attr >> 16
-                                if perms:
-                                    os.chmod(os.path.join(dest_dir, f.filename), perms)
+                    zip_files.append(line.split(None, 1)[1])
+
+        # If no CD tag and this is a GitHub submission (has .git), use assignment name as working dir
+        if not has_cd_tag and os.path.exists(os.path.join(submission_dir, assignment_name, ".git")):
+            assignment_working_dir = assignment_name
+            if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
+                out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
+                move_to_next_submission = True
+
+        # Now extract zip files to the correct working directory
+        if not move_to_next_submission:
+            for zf_name in zip_files:
+                with ZipFile(os.path.join(codeval_dir, zf_name)) as zf:
+                    for f in zf.infolist():
+                        dest_dir = os.path.join(submission_dir, assignment_working_dir)
+                        zf.extract(f, dest_dir)
+                        if not f.is_dir():
+                            perms = f.external_attr >> 16
+                            if perms:
+                                os.chmod(os.path.join(dest_dir, f.filename), perms)
 
         if not move_to_next_submission:
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
