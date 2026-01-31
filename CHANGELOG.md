@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.16
+
+- Add install-assignment command to copy codeval files and zip dependencies to local or remote destinations
+- Auto-detect GitHub submissions and use assignment name as working directory when no CD tag is specified
+- Fix zip file extraction to use correct working directory for GitHub submissions
+
 ## 0.0.15
 
 - Add list-codeval-assignments command
