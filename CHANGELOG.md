@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.19
+
+- Add recent-comments command to list recent codeval comments on Canvas submissions
+  - --time-period option with flexible format (30m, 2h, 1d, 1w)
+  - --active flag to check all active courses
+  - --verbose flag to show progress
+  - --show-uncommented flag to show submissions needing grading
+  - Displays times in local timezone
+  - Shows first/last 3 lines of each comment
+
 ## 0.0.18
 
 - Make CODEVAL_DIR argument optional in evaluate-submissions; uses [CODEVAL] directory from config if not specified
