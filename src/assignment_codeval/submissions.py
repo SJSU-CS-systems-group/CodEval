@@ -116,7 +116,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     zip_files.append(line.split(None, 1)[1])
 
         # If no CD tag and this is a GitHub submission (has .git), use assignment name as working dir
-        if not has_cd_tag and os.path.exists(os.path.join(submission_dir, assignment_name, ".git")):
+        if not has_cd_tag and os.path.exists(os.path.join(submission_dir, ".git")):
             assignment_working_dir = assignment_name
             if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
                 out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
