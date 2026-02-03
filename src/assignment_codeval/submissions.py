@@ -16,6 +16,34 @@ from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_c
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
+def get_github_repo_url(canvas, course, user_id, config_parser, github_field="github"):
+    """
+    Get the GitHub repo URL for a user in a course.
+
+    Returns the repo URL string if found, or None if GitHub is not configured
+    for this course or the user doesn't have a GitHub link in their profile.
+    """
+    gh_key = course.name.replace(":", "").replace("=", "")
+    if 'GITHUB' not in config_parser or gh_key not in config_parser['GITHUB']:
+        return None
+
+    gh_repo_prefix = config_parser['GITHUB'][gh_key]
+
+    try:
+        user = canvas.get_user(user_id)
+        profile = user.get_profile(include=["links", "link"])
+        if 'links' not in profile:
+            return None
+        gh_links = [m['url'] for m in profile['links'] if m['title'].lower() == github_field.lower()]
+        if len(gh_links) != 1:
+            return None
+        gh_url = gh_links[0]
+        gh_id = gh_url.rstrip('/').rsplit('/', 1)[-1]
+        return f"{gh_repo_prefix}-{gh_id}.git"
+    except Exception:
+        return None
+
+
 @click.command()
 @click.argument("submissions_dir", metavar="SUBMISSIONS_DIR")
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
@@ -247,7 +275,7 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
 
                 info(f"downloading submissions for {course.name}: {assignment.name}")
                 _download_assignment_submissions(
-                    course, assignment, target_dir, include_commented, codeval_prefix,
+                    canvas, course, assignment, target_dir, include_commented, codeval_prefix,
                     include_empty, uncommented_for, for_name
                 )
         return
@@ -255,16 +283,21 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
     course = get_course(canvas, course_name)
     assignment = get_assignment(course, assignment_name)
     _download_assignment_submissions(
-        course, assignment, target_dir, include_commented, codeval_prefix,
+        canvas, course, assignment, target_dir, include_commented, codeval_prefix,
         include_empty, uncommented_for, for_name
     )
 
 
-def _download_assignment_submissions(course, assignment, target_dir, include_commented, codeval_prefix,
+def _download_assignment_submissions(canvas, course, assignment, target_dir, include_commented, codeval_prefix,
                                      include_empty, uncommented_for, for_name):
     """Download submissions for a single assignment."""
     submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
+
+    # Load config for GitHub repo lookup
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
 
     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
         if not submission.attempt and not include_empty:
@@ -296,6 +329,7 @@ def _download_assignment_submissions(course, assignment, target_dir, include_com
         os.makedirs(student_submission_dir, exist_ok=True)
 
         metapath = os.path.join(student_submission_dir, "metadata.txt")
+        github_repo = get_github_repo_url(canvas, course, submission.user_id, parser)
         with open(metapath, "w") as fd:
             print(f"""id={student_id}
 name={student_name}
@@ -304,7 +338,8 @@ assignment={assignment.name}
 attempt={submission.attempt}
 late={submission.late}
 date={submission.submitted_at}
-last_comment={last_comment_date}""", file=fd)
+last_comment={last_comment_date}
+github_repo={github_repo or ''}""", file=fd)
 
         # Save the last comment (any comment, not just codeval ones) to last-comment.txt
         if submission.submission_comments:
