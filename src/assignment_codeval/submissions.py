@@ -80,7 +80,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read()
+                        comment = fd.read(4096)
                         # nulls seem to be very problematic for canvas
                         comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
