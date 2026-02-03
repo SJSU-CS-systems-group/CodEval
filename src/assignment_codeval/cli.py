@@ -1,6 +1,7 @@
 import click
 
 from assignment_codeval.ai_benchmark import get_benchmark_command
+from assignment_codeval.commons import set_config
 from assignment_codeval.create_assignment import create_assignment
 from assignment_codeval.evaluate import run_evaluation
 from assignment_codeval.github_connect import github_setup_repo
@@ -10,8 +11,9 @@ from assignment_codeval.submissions import download_submissions, upload_submissi
 
 
 @click.group()
-def cli():
-    pass
+@click.option('--debug', is_flag=True, help='Enable debug output')
+def cli(debug):
+    set_config(show_debug=debug, dry_run=False, force=False, copy_tmpdir=False)
 
 cli.add_command(run_evaluation)
 cli.add_command(download_submissions)

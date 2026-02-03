@@ -16,7 +16,7 @@ from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_c
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
-def get_github_repo_url(canvas, course, user_id, config_parser, github_field="github"):
+def get_github_repo_url(course, user_id, config_parser, github_field="github"):
     """
     Get the GitHub repo URL for a user in a course.
 
@@ -30,17 +30,24 @@ def get_github_repo_url(canvas, course, user_id, config_parser, github_field="gi
     gh_repo_prefix = config_parser['GITHUB'][gh_key]
 
     try:
-        user = canvas.get_user(user_id)
+        user = course.get_user(user_id)
         profile = user.get_profile(include=["links", "link"])
         if 'links' not in profile:
+            debug(f"user {user_id}: no links in canvas profile")
             return None
+        link_titles = [m['title'] for m in profile['links']]
         gh_links = [m['url'] for m in profile['links'] if m['title'].lower() == github_field.lower()]
-        if len(gh_links) != 1:
+        if len(gh_links) == 0:
+            debug(f"user {user_id}: no '{github_field}' link found, available: {link_titles}")
+            return None
+        if len(gh_links) > 1:
+            debug(f"user {user_id}: multiple '{github_field}' links in canvas profile")
             return None
         gh_url = gh_links[0]
         gh_id = gh_url.rstrip('/').rsplit('/', 1)[-1]
         return f"{gh_repo_prefix}-{gh_id}.git"
-    except Exception:
+    except Exception as e:
+        warn(f"user {user_id}: error getting github repo: {e}")
         return None
 
 
@@ -299,6 +306,13 @@ def _download_assignment_submissions(canvas, course, assignment, target_dir, inc
     config_file = click.get_app_dir("codeval.ini")
     parser.read(config_file)
 
+    # Check if GitHub is configured for this course
+    gh_key = course.name.replace(":", "").replace("=", "")
+    if 'GITHUB' in parser and gh_key in parser['GITHUB']:
+        info(f"GitHub configured for course (key: {gh_key}), users need 'github' link in Canvas profile")
+    else:
+        info(f"GitHub not configured (no '{gh_key}' in [GITHUB] section of {config_file})")
+
     for submission in assignment.get_submissions(include=["submission_comments", "user"]):
         if not submission.attempt and not include_empty:
             continue
@@ -329,7 +343,7 @@ def _download_assignment_submissions(canvas, course, assignment, target_dir, inc
         os.makedirs(student_submission_dir, exist_ok=True)
 
         metapath = os.path.join(student_submission_dir, "metadata.txt")
-        github_repo = get_github_repo_url(canvas, course, submission.user_id, parser)
+        github_repo = get_github_repo_url(course, submission.user_id, parser)
         with open(metapath, "w") as fd:
             print(f"""id={student_id}
 name={student_name}
