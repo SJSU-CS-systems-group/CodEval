@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.20
+
+- Add github_repo field to metadata.txt during download-submissions
+- Simplify github-setup-repo to read repo URL from metadata.txt instead of Canvas
+- Add global --debug flag to CLI for debug output
+- Fix GitHub repo lookup to use course.get_user() instead of canvas.get_user()
+
 ## 0.0.19
 
 - Add recent-comments command to list recent codeval comments on Canvas submissions
