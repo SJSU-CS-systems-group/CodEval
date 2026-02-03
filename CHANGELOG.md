@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.21
+
+- Truncate large submission comments to 4K characters to avoid Canvas API limits
+
 ## 0.0.20
 
 - Add github_repo field to metadata.txt during download-submissions
