@@ -62,3 +62,15 @@ fixed/
 #random
 canvas_tool.py
 
+binary_rendering
+compilelog
+difflog
+expectederror
+expectedoutput
+fileinput
+build/lib/assignment_codeval/submissions.py
+/build
+/src/assignment_codeval.egg-info
+/assignment_7
+yourerror
+youroutput
