@@ -2,15 +2,17 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from configparser import ConfigParser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
+
 import click
 import requests
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_assignment
+from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_courses, get_assignment
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
@@ -39,14 +41,19 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                 if "comments.txt.sent" in filenames:
                     info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
                 else:
-                    #uploads 'comments.txt' as an attachment to a new comment!
                     info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
+                    write_html_file(dirpath)
+
                     course = get_course(canvas, course_name)
                     assignment = get_assignment(course, assignment_name)
                     with open(f"{dirpath}/comments.txt", "r") as fd:
+                        #comment = fd.read()
+                        # nulls seem to be very problematic for canvas
+                        #comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                         submission = get_submissions_by_id(assignment).get(student_id)
                         if submission:
-                            success, response = submission.upload_comment( f"{dirpath}/comments.txt")
+                            #submission.edit(comment={'text_comment': 'See results here:'})                            
+                            success, response = submission.upload_comment(f"{dirpath}/test.html")
    
                         else:
                             warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
@@ -54,9 +61,8 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
                         fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 
 
-
 @click.command()
-@click.argument('codeval_dir', metavar="CODEVAL_DIR")
+@click.argument('codeval_dir', metavar="CODEVAL_DIR", required=False)
 @click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID",
               default='./submissions', show_default=True)
 def evaluate_submissions(codeval_dir, submissions_dir):
@@ -64,11 +70,18 @@ def evaluate_submissions(codeval_dir, submissions_dir):
     Evaluate submissions stored in the form COURSE/ASSIGNMENT/STUDENT_ID.
 
     CODEVAL_DIR specifies a directory that has the codeval files named after the assignment with the .codeval suffix.
+    If not specified, uses the directory from [CODEVAL] section in codeval.ini.
     """
     parser = ConfigParser()
     config_file = click.get_app_dir("codeval.ini")
     parser.read(config_file)
     parser.config_file = config_file
+
+    # Use codeval_dir from config if not specified
+    if not codeval_dir:
+        if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+            raise click.UsageError(f"CODEVAL_DIR not specified and [CODEVAL] section with directory= not found in {config_file}")
+        codeval_dir = parser['CODEVAL']['directory']
 
     raw_command = parser["RUN"]["command"]
     if not raw_command:
@@ -88,9 +101,11 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             warn(f"no codeval file found for {assignment_name} in {codeval_file}")
             continue
 
-        # get the zipfiles (Z tag) and timeout (CTO tag)
+        # First pass: get CTO, CD tags, and collect Z files (don't extract yet)
         compile_timeout = 20
         assignment_working_dir = "."
+        has_cd_tag = False
+        zip_files = []
         move_to_next_submission = False
         with open(codeval_file, "r") as fd:
             for line in fd:
@@ -101,6 +116,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     except Exception:
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
                 if line.startswith("CD"):
+                    has_cd_tag = True
                     assignment_working_dir = os.path.normpath(
                         os.path.join(assignment_working_dir, line.split()[1].strip()))
                     if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
@@ -108,16 +124,26 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         move_to_next_submission = True
                         break
                 if line.startswith("Z"):
-                    zipfile = line.split(None, 1)[1]
-                    # unzip into the submission directory
-                    with ZipFile(os.path.join(codeval_dir, zipfile)) as zf:
-                        for f in zf.infolist():
-                            dest_dir = os.path.join(submission_dir, assignment_working_dir)
-                            zf.extract(f, dest_dir)
-                            if not f.is_dir():
-                                perms = f.external_attr >> 16
-                                if perms:
-                                    os.chmod(os.path.join(dest_dir, f.filename), perms)
+                    zip_files.append(line.split(None, 1)[1])
+
+        # If no CD tag and this is a GitHub submission (has .git), use assignment name as working dir
+        if not has_cd_tag and os.path.exists(os.path.join(submission_dir, ".git")):
+            assignment_working_dir = assignment_name
+            if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
+                out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
+                move_to_next_submission = True
+
+        # Now extract zip files to the correct working directory
+        if not move_to_next_submission:
+            for zf_name in zip_files:
+                with ZipFile(os.path.join(codeval_dir, zf_name)) as zf:
+                    for f in zf.infolist():
+                        dest_dir = os.path.join(submission_dir, assignment_working_dir)
+                        zf.extract(f, dest_dir)
+                        if not f.is_dir():
+                            perms = f.external_attr >> 16
+                            if perms:
+                                os.chmod(os.path.join(dest_dir, f.filename), perms)
 
         if not move_to_next_submission:
             command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
@@ -126,34 +152,48 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 submission_link = os.path.join(link_dir, "submissions")
                 os.symlink(submission_dir, submission_link)
                 full_assignment_working_dir = os.path.join(submission_link, assignment_working_dir)
-                shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
-
-                command = command.replace("SUBMISSIONS", full_assignment_working_dir)
-                info(f"command to execute: {command}")
-                p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                try:
-                    out, err = p.communicate(timeout=compile_timeout)
-                except subprocess.TimeoutExpired:
-                    p.kill()
-                    out, err = p.communicate()
-                    out += bytes(f"\nTOOK LONGER THAN {compile_timeout} seconds to run. FAILED\n", encoding='utf-8')
-                except Exception as e:
-                    error(f"exception {e} running evaluation for {dirpath}")
-                    p.kill()
-                    out, err = p.communicate()
-                    out += bytes(f"\nFAILED with exception {e}\n", encoding='utf-8')
-                finally:
-                    info("finished executing docker")
 
         info("writing results")
-        with open(f"{dirpath}/comments.txt", "wb") as fd:
             fd.write(out)
+            
         info("continuing")
+
+def write_html_file(dirpath):
+    with open(f"test_template.html", "r") as src:
+        with open(f"{dirpath}/test.html", "w") as dst:
+            dst.write(src.read())
+
+    with open(f"{dirpath}/metadata.txt", "r") as f:
+        for line in f:
+            if line.startswith("assignment="):
+                assignment_name=line.strip().split("=", 1)[1]
+            if line.startswith("name="):
+                student_name = line.strip().split("=", 1)[1]
+            if line.startswith("attempt="):
+                attempt_no = line.strip().split("=", 1)[1]
+            if line.startswith("date="):
+                last_submitted = line.strip().split("=", 1)[1]
+                break
+                            
+    with open(f"{dirpath}/test.html", "a") as fd:
+        fd.write(f'<h3>Assignment: {assignment_name}</h3>')
+        fd.write(
+            f'<div class="meta"><div><strong>Student:</strong> {student_name}</div></div>'f'<div class="meta"><div><strong>Submitted:</strong> {last_submitted}</div></div>'
+            f'<div class="meta"><div><strong>Next Evaluation:</strong> {last_submitted} - current_time</div></div>')
+        fd.write(f'<h3>Attempt: {attempt_no} </h3>') 
+        fd.write('<div class="code-block">')
+        with open(f"{dirpath}/comments.txt", "r") as src:
+            fd.write(src.read())
+        fd.write('</div>')
+        fd.write('</body>')
 
 
 @click.command()
-@click.argument("course_name", metavar="COURSE")
-@click.argument("assignment_name", metavar="ASSIGNMENT")
+@click.argument("course_name", metavar="COURSE", required=False)
+@click.argument("assignment_name", metavar="ASSIGNMENT", required=False)
+@click.option("--active", is_flag=True, help="download from all active assignments in all active courses")
+@click.option("--until-window", default=24, show_default=True,
+              help="hours after the until date to still consider an assignment active")
 @click.option("--target-dir", help="directory to download submissions to", default='./submissions', show_default=True)
 @click.option("--include-commented", is_flag=True,
               help="even download submissionsthat already have codeval comments since last submission")
@@ -163,17 +203,78 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
 @click.option("--for-name", help="only download submissions for this student name")
-def download_submissions(course_name, assignment_name, target_dir, include_commented, codeval_prefix, include_empty,
-                         uncommented_for, for_name):
+def download_submissions(course_name, assignment_name, active, until_window, target_dir, include_commented,
+                         codeval_prefix, include_empty, uncommented_for, for_name):
     """
     Download submissions for a given assignment in a course from Canvas.
 
-    the COURSE and ASSIGNMENT arguments can be partial names.
+    The COURSE and ASSIGNMENT arguments can be partial names.
+
+    Use --active to download from all active assignments in all active courses
+    (COURSE and ASSIGNMENT are not required when --active is used).
     """
+    if not active and (not course_name or not assignment_name):
+        raise click.UsageError("COURSE and ASSIGNMENT are required unless --active is specified")
+
     (canvas, user) = connect_to_canvas()
+
+    if active:
+        # Load codeval directory from config
+        parser = ConfigParser()
+        config_file = click.get_app_dir("codeval.ini")
+        parser.read(config_file)
+        if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+            raise click.UsageError(f"[CODEVAL] section with directory= is required in {config_file}")
+        codeval_dir = parser['CODEVAL']['directory']
+
+        courses = get_courses(canvas, course_name or "", is_active=True)
+        if not courses:
+            error("no active courses found")
+            return
+
+        now = datetime.now(timezone.utc)
+        for course in courses:
+            for assignment in course.get_assignments():
+                if assignment_name and assignment_name.lower() not in despace(assignment.name).lower():
+                    continue
+                # Check if assignment is active: availability date passed and until date + window not passed
+                unlock_at = getattr(assignment, 'unlock_at_date', None)
+                lock_at = getattr(assignment, 'lock_at_date', None)
+                if unlock_at and unlock_at > now:
+                    continue  # not yet available
+                if lock_at:
+                    window = timedelta(hours=until_window)
+                    if lock_at + window < now:
+                        continue  # past the until window
+
+                # Filter by submission type: only text_entry (GitHub) or file upload assignments
+                submission_types = getattr(assignment, 'submission_types', [])
+                if "online_text_entry" not in submission_types and "online_upload" not in submission_types:
+                    continue
+
+                # Only download if a corresponding codeval file exists
+                codeval_file = os.path.join(codeval_dir, f"{despace(assignment.name)}.codeval")
+                if not os.path.exists(codeval_file):
+                    continue
+
+                info(f"downloading submissions for {course.name}: {assignment.name}")
+                _download_assignment_submissions(
+                    course, assignment, target_dir, include_commented, codeval_prefix,
+                    include_empty, uncommented_for, for_name
+                )
+        return
 
     course = get_course(canvas, course_name)
     assignment = get_assignment(course, assignment_name)
+    _download_assignment_submissions(
+        course, assignment, target_dir, include_commented, codeval_prefix,
+        include_empty, uncommented_for, for_name
+    )
+
+
+def _download_assignment_submissions(course, assignment, target_dir, include_commented, codeval_prefix,
+                                     include_empty, uncommented_for, for_name):
+    """Download submissions for a single assignment."""
     submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
 
@@ -216,6 +317,18 @@ attempt={submission.attempt}
 late={submission.late}
 date={submission.submitted_at}
 last_comment={last_comment_date}""", file=fd)
+
+        # Save the last comment (any comment, not just codeval ones) to last-comment.txt
+        if submission.submission_comments:
+            all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
+            last_comment = all_comments[-1]
+            last_comment_path = os.path.join(student_submission_dir, "last-comment.txt")
+            with open(last_comment_path, "w") as fd:
+                print(f"date={last_comment['created_at']}", file=fd)
+                print(f"author={last_comment.get('author_name', 'unknown')}", file=fd)
+                print("", file=fd)
+                print(last_comment.get('comment', ''), file=fd)
+
         body = submission.body
         if body:
             filepath = os.path.join(student_submission_dir, "content.txt")
@@ -237,8 +350,50 @@ last_comment={last_comment_date}""", file=fd)
 @cache
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
-    for submission in assignment.get_submissions(include=["user", "submission_comments"]):
+    for submission in assignment.get_submissions(include=["user"]):
         student_id = str(submission.user_id)
-        prev_comments = submission.submission_comments
         submissions_by_id[student_id] = submission
     return submissions_by_id
+
+
+@click.command()
+@click.argument("course_name", metavar="COURSE", required=False)
+def list_codeval_assignments(course_name):
+    """
+    List all assignments that have corresponding codeval files.
+
+    Optionally filter by COURSE (partial name match).
+    Reports errors for codeval files that don't match any assignment.
+    """
+    # Load codeval directory from config
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    if 'CODEVAL' not in parser or 'directory' not in parser['CODEVAL']:
+        raise click.UsageError(f"[CODEVAL] section with directory= is required in {config_file}")
+    codeval_dir = parser['CODEVAL']['directory']
+
+    if not os.path.isdir(codeval_dir):
+        raise click.UsageError(f"CODEVAL directory does not exist: {codeval_dir}")
+
+    # Get all codeval files in the directory
+    codeval_files = {f[:-8] for f in os.listdir(codeval_dir) if f.endswith('.codeval')}
+    matched_codeval_files = set()
+
+    (canvas, user) = connect_to_canvas()
+    courses = get_courses(canvas, course_name or "", is_active=True)
+    if not courses:
+        error("no active courses found")
+        return
+
+    for course in courses:
+        for assignment in course.get_assignments():
+            assignment_key = despace(assignment.name)
+            if assignment_key in codeval_files:
+                matched_codeval_files.add(assignment_key)
+                info(f"{course.name}: {assignment.name}")
+
+    # Report codeval files that don't match any assignment
+    unmatched = codeval_files - matched_codeval_files
+    for codeval_name in sorted(unmatched):
+        error(f"codeval file has no matching assignment: {codeval_name}.codeval")
