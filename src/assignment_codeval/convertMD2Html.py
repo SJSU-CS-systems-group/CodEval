@@ -101,23 +101,30 @@ def mdToHtml(file_name, files_resolver=None):
         text = ""
         examples = []
         assignment = ""
+        compile_command = ""
+        past_crt_hw = False
         numOfSampleTC = 1
         for line in f:
             if 'CRT_HW START' in line:
                 assignment_name = line[13:].strip()
             elif 'CRT_HW END' in line:
                 assignment = text
+                past_crt_hw = True
             elif line.startswith(('T ', 'I ', 'IB ', 'IF ', 'O ', 'OB ', 'OF ', 'X ', 'E ', 'EB ')):
                 examples.append(line)
             elif line.startswith('HT '):
                 break
             else:
+                if past_crt_hw and line.startswith('C '):
+                    compile_command = line[2:].strip()
                 if 'EXMPLS ' in line:
                     numOfSampleTC = int(line[7:])
                 text = text + line
         spec_dir = os.path.dirname(os.path.abspath(file_name))
         samples = sampleTestCases(examples, numOfSampleTC, spec_dir)
         assignment = re.sub('EXMPLS [0-9]+', samples, assignment)
+        if compile_command:
+            assignment = assignment.replace('COMPILE', compile_command)
         # Handle FILE macros in two passes:
         # 1. FILE inside markdown link syntax: [text](FILE[name]) -> [text](url)
         assignment = re.sub(r'\]\(FILE\[([^]]+)]\)',

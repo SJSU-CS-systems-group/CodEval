@@ -379,3 +379,47 @@ X 0
             (name, html) = mdToHtml(str(spec_file))
 
         assert "file output content" in html
+
+    def test_compile_macro_replaced_with_c_tag(self, tmp_path):
+        """Test that COMPILE macro is replaced with the C tag value."""
+        spec_content = """CRT_HW START Test Assignment
+# Compiling
+
+    COMPILE
+
+CRT_HW END
+C g++ main.cpp -o main -std=c++23
+T ./main
+O hello
+"""
+        spec_file = tmp_path / "test.codeval"
+        spec_file.write_text(spec_content)
+
+        from unittest.mock import patch
+        with patch('assignment_codeval.convertMD2Html.get_config') as mock_config:
+            mock_config.return_value.dry_run = False
+            (name, html) = mdToHtml(str(spec_file))
+
+        assert "g++ main.cpp -o main -std=c++23" in html
+        assert "COMPILE" not in html
+
+    def test_compile_macro_unchanged_without_c_tag(self, tmp_path):
+        """Test that COMPILE macro is left as-is when there is no C tag."""
+        spec_content = """CRT_HW START Test Assignment
+# Compiling
+
+    COMPILE
+
+CRT_HW END
+T ./main
+O hello
+"""
+        spec_file = tmp_path / "test.codeval"
+        spec_file.write_text(spec_content)
+
+        from unittest.mock import patch
+        with patch('assignment_codeval.convertMD2Html.get_config') as mock_config:
+            mock_config.return_value.dry_run = False
+            (name, html) = mdToHtml(str(spec_file))
+
+        assert "COMPILE" in html
