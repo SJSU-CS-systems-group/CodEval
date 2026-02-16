@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.22
+
+- Fix HTML generation for create-assignment ignoring OF, OB, IF, IB, EB tags
+- Inline OF/IF file content in sample test case HTML instead of showing filename
+- Convert ANSI escape codes in OF/IF file content to styled HTML spans
+- Add COMPILE macro that expands to the C tag value in assignment descriptions
+- Fix tag parser stripping leading whitespace from I, O, E tag values
+- Fix case-insensitive codeval file lookup
+
 ## 0.0.21
 
 - Truncate large submission comments to 4K characters to avoid Canvas API limits
