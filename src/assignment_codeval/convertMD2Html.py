@@ -1,3 +1,4 @@
+import os
 import re
 
 import markdown
@@ -5,7 +6,19 @@ import markdown
 from assignment_codeval.commons import info, get_config
 
 
-def sampleTestCases(listOfTC, numOfTC):
+def _read_file_content(filename, spec_dir):
+    """Read the content of a file referenced by an OF or IF tag."""
+    if not spec_dir:
+        return None
+    filepath = os.path.join(spec_dir, filename)
+    try:
+        with open(filepath, 'r') as f:
+            return f.read()
+    except (FileNotFoundError, OSError):
+        return None
+
+
+def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
     counter = 0
     samples = "<pre><code>"
     for line in listOfTC:
@@ -15,13 +28,23 @@ def sampleTestCases(listOfTC, numOfTC):
                 break
             samples = samples + "\n" + "Command to RUN: " + line[2:]
         elif line.startswith('IF '):
-            samples = samples + "<span style=\"color:green\">Input from file: " + line[3:] + "</span>"
+            filename = line[3:].strip()
+            content = _read_file_content(filename, spec_dir)
+            if content is not None:
+                samples = samples + "<span style=\"color:green\">" + content + "</span>"
+            else:
+                samples = samples + "<span style=\"color:green\">Input from file: " + filename + "\n</span>"
         elif line.startswith('IB '):
             samples = samples + "<span style=\"color:green\">" + line[3:] + "</span>"
         elif line.startswith('I '):
             samples = samples + "<span style=\"color:green\">" + line[2:] + "</span>"
         elif line.startswith('OF '):
-            samples = samples + "<span style=\"color:blue\">Expected output from file: " + line[3:] + "</span>"
+            filename = line[3:].strip()
+            content = _read_file_content(filename, spec_dir)
+            if content is not None:
+                samples = samples + "<span style=\"color:blue\">" + content + "</span>"
+            else:
+                samples = samples + "<span style=\"color:blue\">Expected output from file: " + filename + "\n</span>"
         elif line.startswith('OB '):
             samples = samples + "<span style=\"color:blue\">" + line[3:] + "</span>"
         elif line.startswith('O '):
@@ -57,7 +80,8 @@ def mdToHtml(file_name, files_resolver=None):
                 if 'EXMPLS ' in line:
                     numOfSampleTC = int(line[7:])
                 text = text + line
-        samples = sampleTestCases(examples, numOfSampleTC)
+        spec_dir = os.path.dirname(os.path.abspath(file_name))
+        samples = sampleTestCases(examples, numOfSampleTC, spec_dir)
         assignment = re.sub('EXMPLS [0-9]+', samples, assignment)
         # Handle FILE macros in two passes:
         # 1. FILE inside markdown link syntax: [text](FILE[name]) -> [text](url)

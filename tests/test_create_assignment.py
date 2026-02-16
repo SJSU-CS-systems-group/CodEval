@@ -221,8 +221,9 @@ Z support.zip
 class TestSampleTestCases:
     """Tests for the sampleTestCases function in convertMD2Html."""
 
-    def test_of_tag_included_in_html(self):
-        """Test that OF tags are included in sample test case HTML output."""
+    def test_of_tag_reads_file_content(self, tmp_path):
+        """Test that OF tags read and inline the file content."""
+        (tmp_path / "expected.txt").write_text("hello world\n")
         examples = [
             "T ./program\n",
             "I yes\n",
@@ -230,8 +231,18 @@ class TestSampleTestCases:
             "O some output\n",
             "X 0\n",
         ]
-        html = sampleTestCases(examples, 1)
-        assert "expected.txt" in html
+        html = sampleTestCases(examples, 1, str(tmp_path))
+        assert "hello world" in html
+        assert "expected.txt" not in html
+
+    def test_of_tag_falls_back_when_file_missing(self):
+        """Test that OF tags fall back to showing filename when file is not found."""
+        examples = [
+            "T ./program\n",
+            "OF nonexistent.txt\n",
+        ]
+        html = sampleTestCases(examples, 1, "/no/such/dir")
+        assert "nonexistent.txt" in html
 
     def test_ob_tag_included_in_html(self):
         """Test that OB tags are included in sample test case HTML output."""
@@ -242,15 +253,17 @@ class TestSampleTestCases:
         html = sampleTestCases(examples, 1)
         assert "output without newline" in html
 
-    def test_if_tag_included_in_html(self):
-        """Test that IF tags are included in sample test case HTML output."""
+    def test_if_tag_reads_file_content(self, tmp_path):
+        """Test that IF tags read and inline the file content."""
+        (tmp_path / "input.txt").write_text("file input data\n")
         examples = [
             "T ./program\n",
             "IF input.txt\n",
             "O expected\n",
         ]
-        html = sampleTestCases(examples, 1)
-        assert "input.txt" in html
+        html = sampleTestCases(examples, 1, str(tmp_path))
+        assert "file input data" in html
+        assert "input.txt" not in html
 
     def test_ib_tag_included_in_html(self):
         """Test that IB tags are included in sample test case HTML output."""
@@ -275,8 +288,8 @@ class TestSampleTestCases:
 class TestMdToHtmlTagCollection:
     """Tests that mdToHtml collects multi-char tags (OF, OB, IF, IB, EB) for sample test cases."""
 
-    def test_of_tag_appears_in_html(self, tmp_path):
-        """Test that OF tag content appears in the generated HTML."""
+    def test_of_tag_reads_file_content(self, tmp_path):
+        """Test that OF tag file content appears in the generated HTML."""
         spec_content = """CRT_HW START Test Assignment
 # Description
 
@@ -291,10 +304,11 @@ X 0
 """
         spec_file = tmp_path / "test.codeval"
         spec_file.write_text(spec_content)
+        (tmp_path / "expected.txt").write_text("file output content\n")
 
         from unittest.mock import patch
         with patch('assignment_codeval.convertMD2Html.get_config') as mock_config:
             mock_config.return_value.dry_run = False
             (name, html) = mdToHtml(str(spec_file))
 
-        assert "expected.txt" in html
+        assert "file output content" in html
