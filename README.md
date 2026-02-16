@@ -173,6 +173,8 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 
 * FILE[file_name] - this macro will be replaced by a link to the specified file
 
+* COMPILE - this macro will be replaced with the compile command from the C tag in the specification file
+
 ### MODIFICATIONS REQUIRED IN THE SPECIFICATION FILE.
 1) Start the specification file with the tag CRT_HW START followed by a space followed by the name of assignment.
 	```  For ex: CRT_HW START Hello World```
