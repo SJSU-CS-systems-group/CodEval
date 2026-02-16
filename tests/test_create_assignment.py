@@ -4,7 +4,7 @@ import zipfile
 import pytest
 
 from assignment_codeval.create_assignment import extract_file_macros
-from assignment_codeval.convertMD2Html import sampleTestCases, mdToHtml
+from assignment_codeval.convertMD2Html import sampleTestCases, mdToHtml, ansi_to_html
 
 
 class TestExtractFileMacros:
@@ -218,6 +218,62 @@ Z support.zip
                 assert f.read() == "local content"
 
 
+class TestAnsiToHtml:
+    """Tests for ANSI escape code to HTML conversion."""
+
+    def test_no_ansi_codes(self):
+        """Plain text is returned unchanged."""
+        assert ansi_to_html("hello world") == "hello world"
+
+    def test_foreground_color(self):
+        """ANSI foreground color becomes a span with color style."""
+        text = "\x1b[31mred text\x1b[0m"
+        html = ansi_to_html(text)
+        assert '<span style="color:red">' in html
+        assert "red text" in html
+        assert "</span>" in html
+
+    def test_background_color(self):
+        """ANSI background color becomes a span with background-color style."""
+        text = "\x1b[44m  blue bg  \x1b[0m"
+        html = ansi_to_html(text)
+        assert '<span style="background-color:blue">' in html
+
+    def test_bold(self):
+        """ANSI bold becomes font-weight:bold."""
+        text = "\x1b[1mbold\x1b[0m"
+        html = ansi_to_html(text)
+        assert '<span style="font-weight:bold">' in html
+
+    def test_combined_codes(self):
+        """Multiple ANSI codes produce nested spans."""
+        text = "\x1b[1m\x1b[33mA \x1b[0m"
+        html = ansi_to_html(text)
+        assert "font-weight:bold" in html
+        assert "color:#a50" in html
+        assert "A " in html
+
+    def test_reset_closes_all_spans(self):
+        """Reset code closes all open spans."""
+        text = "\x1b[1m\x1b[33mbold yellow\x1b[0m plain"
+        html = ansi_to_html(text)
+        assert html.endswith("plain")
+        assert html.count("<span") == html.count("</span>")
+
+    def test_compound_codes(self):
+        """Semicolon-separated codes in a single escape sequence."""
+        text = "\x1b[1;31mbold red\x1b[0m"
+        html = ansi_to_html(text)
+        assert "font-weight:bold" in html
+        assert "color:red" in html
+
+    def test_unclosed_spans_closed_at_end(self):
+        """Spans without a reset are closed at the end."""
+        text = "\x1b[31mred text"
+        html = ansi_to_html(text)
+        assert html.count("<span") == html.count("</span>")
+
+
 class TestSampleTestCases:
     """Tests for the sampleTestCases function in convertMD2Html."""
 
@@ -234,6 +290,17 @@ class TestSampleTestCases:
         html = sampleTestCases(examples, 1, str(tmp_path))
         assert "hello world" in html
         assert "expected.txt" not in html
+
+    def test_of_tag_converts_ansi_to_html(self, tmp_path):
+        """Test that ANSI codes in OF file content are converted to HTML."""
+        (tmp_path / "expected.txt").write_text("\x1b[1m\x1b[33mA \x1b[0m\x1b[44m  \x1b[0m\n")
+        examples = [
+            "T ./program\n",
+            "OF expected.txt\n",
+        ]
+        html = sampleTestCases(examples, 1, str(tmp_path))
+        assert "font-weight:bold" in html
+        assert "\x1b[" not in html
 
     def test_of_tag_falls_back_when_file_missing(self):
         """Test that OF tags fall back to showing filename when file is not found."""

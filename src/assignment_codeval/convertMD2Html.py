@@ -6,6 +6,41 @@ import markdown
 from assignment_codeval.commons import info, get_config
 
 
+_ANSI_STYLES = {
+    '1': 'font-weight:bold',
+    '4': 'text-decoration:underline',
+    '30': 'color:black', '31': 'color:red', '32': 'color:green',
+    '33': 'color:#a50', '34': 'color:blue', '35': 'color:magenta',
+    '36': 'color:cyan', '37': 'color:white',
+    '40': 'background-color:black', '41': 'background-color:red',
+    '42': 'background-color:green', '43': 'background-color:yellow',
+    '44': 'background-color:blue', '45': 'background-color:magenta',
+    '46': 'background-color:cyan', '47': 'background-color:white',
+}
+
+
+def ansi_to_html(text):
+    """Convert ANSI escape codes in text to HTML span tags."""
+    parts = re.split(r'\x1b\[([\d;]*)m', text)
+    result = []
+    open_spans = 0
+    for i, part in enumerate(parts):
+        if i % 2 == 0:
+            result.append(part)
+        else:
+            codes = part.split(';') if part else ['0']
+            if '0' in codes:
+                result.append('</span>' * open_spans)
+                open_spans = 0
+            else:
+                styles = [_ANSI_STYLES[c] for c in codes if c in _ANSI_STYLES]
+                if styles:
+                    result.append(f'<span style="{";".join(styles)}">')
+                    open_spans += 1
+    result.append('</span>' * open_spans)
+    return ''.join(result)
+
+
 def _read_file_content(filename, spec_dir):
     """Read the content of a file referenced by an OF or IF tag."""
     if not spec_dir:
@@ -31,7 +66,7 @@ def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
             filename = line[3:].strip()
             content = _read_file_content(filename, spec_dir)
             if content is not None:
-                samples = samples + "<span style=\"color:green\">" + content + "</span>"
+                samples = samples + "<span style=\"color:green\">" + ansi_to_html(content) + "</span>"
             else:
                 samples = samples + "<span style=\"color:green\">Input from file: " + filename + "\n</span>"
         elif line.startswith('IB '):
@@ -42,7 +77,7 @@ def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
             filename = line[3:].strip()
             content = _read_file_content(filename, spec_dir)
             if content is not None:
-                samples = samples + "<span style=\"color:blue\">" + content + "</span>"
+                samples = samples + "<span style=\"color:blue\">" + ansi_to_html(content) + "</span>"
             else:
                 samples = samples + "<span style=\"color:blue\">Expected output from file: " + filename + "\n</span>"
         elif line.startswith('OB '):
