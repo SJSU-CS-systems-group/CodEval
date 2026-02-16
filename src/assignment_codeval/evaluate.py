@@ -631,7 +631,8 @@ def parse_tags(tags: list[str]):
         None
     """
     # Pattern matches: TAG arguments (arguments required)
-    tag_pattern = r"([A-Z_]+)\s+(.*)"
+    # Use single space separator to preserve leading whitespace in values
+    tag_pattern = r"([A-Z_]+) (.*)"
     # Pattern for tag with optional arguments
     tag_only_pattern = r"([A-Z_]+)\s*$"
 

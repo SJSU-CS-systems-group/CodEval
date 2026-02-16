@@ -311,6 +311,62 @@ class TestSampleTestCases:
         html = sampleTestCases(examples, 1, "/no/such/dir")
         assert "nonexistent.txt" in html
 
+    def test_o_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that O tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "O  there is a space \n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " there is a space " in html
+
+    def test_i_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that I tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "I  leading space\n",
+            "O expected\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " leading space" in html
+
+    def test_ob_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that OB tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "OB  spaced output \n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " spaced output " in html
+
+    def test_ib_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that IB tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "IB  spaced input \n",
+            "O expected\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " spaced input " in html
+
+    def test_e_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that E tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "E  error with spaces \n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " error with spaces " in html
+
+    def test_eb_tag_preserves_leading_and_trailing_spaces(self):
+        """Test that EB tag values preserve leading and trailing whitespace."""
+        examples = [
+            "T ./program\n",
+            "EB  bare error \n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert " bare error " in html
+
     def test_ob_tag_included_in_html(self):
         """Test that OB tags are included in sample test case HTML output."""
         examples = [
