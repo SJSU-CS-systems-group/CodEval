@@ -4,6 +4,7 @@ import zipfile
 import pytest
 
 from assignment_codeval.create_assignment import extract_file_macros
+from assignment_codeval.convertMD2Html import sampleTestCases, mdToHtml
 
 
 class TestExtractFileMacros:
@@ -215,3 +216,85 @@ Z support.zip
             assert os.path.isfile(local_path)
             with open(local_path, 'r') as f:
                 assert f.read() == "local content"
+
+
+class TestSampleTestCases:
+    """Tests for the sampleTestCases function in convertMD2Html."""
+
+    def test_of_tag_included_in_html(self):
+        """Test that OF tags are included in sample test case HTML output."""
+        examples = [
+            "T ./program\n",
+            "I yes\n",
+            "OF expected.txt\n",
+            "O some output\n",
+            "X 0\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "expected.txt" in html
+
+    def test_ob_tag_included_in_html(self):
+        """Test that OB tags are included in sample test case HTML output."""
+        examples = [
+            "T ./program\n",
+            "OB output without newline\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "output without newline" in html
+
+    def test_if_tag_included_in_html(self):
+        """Test that IF tags are included in sample test case HTML output."""
+        examples = [
+            "T ./program\n",
+            "IF input.txt\n",
+            "O expected\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "input.txt" in html
+
+    def test_ib_tag_included_in_html(self):
+        """Test that IB tags are included in sample test case HTML output."""
+        examples = [
+            "T ./program\n",
+            "IB bare input\n",
+            "O expected\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "bare input" in html
+
+    def test_eb_tag_included_in_html(self):
+        """Test that EB tags are included in sample test case HTML output."""
+        examples = [
+            "T ./program\n",
+            "EB error output\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "error output" in html
+
+
+class TestMdToHtmlTagCollection:
+    """Tests that mdToHtml collects multi-char tags (OF, OB, IF, IB, EB) for sample test cases."""
+
+    def test_of_tag_appears_in_html(self, tmp_path):
+        """Test that OF tag content appears in the generated HTML."""
+        spec_content = """CRT_HW START Test Assignment
+# Description
+
+EXMPLS 1
+
+CRT_HW END
+T ./program
+I yes
+OF expected.txt
+O some output
+X 0
+"""
+        spec_file = tmp_path / "test.codeval"
+        spec_file.write_text(spec_content)
+
+        from unittest.mock import patch
+        with patch('assignment_codeval.convertMD2Html.get_config') as mock_config:
+            mock_config.return_value.dry_run = False
+            (name, html) = mdToHtml(str(spec_file))
+
+        assert "expected.txt" in html

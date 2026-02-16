@@ -14,12 +14,22 @@ def sampleTestCases(listOfTC, numOfTC):
             if counter > numOfTC:
                 break
             samples = samples + "\n" + "Command to RUN: " + line[2:]
+        elif line.startswith('IF '):
+            samples = samples + "<span style=\"color:green\">Input from file: " + line[3:] + "</span>"
+        elif line.startswith('IB '):
+            samples = samples + "<span style=\"color:green\">" + line[3:] + "</span>"
         elif line.startswith('I '):
             samples = samples + "<span style=\"color:green\">" + line[2:] + "</span>"
+        elif line.startswith('OF '):
+            samples = samples + "<span style=\"color:blue\">Expected output from file: " + line[3:] + "</span>"
+        elif line.startswith('OB '):
+            samples = samples + "<span style=\"color:blue\">" + line[3:] + "</span>"
         elif line.startswith('O '):
             samples = samples + "<span style=\"color:blue\">" + line[2:] + "</span>"
         elif line.startswith('X '):
             samples = samples + "Expected Exit Code: " + line[2:]
+        elif line.startswith('EB '):
+            samples = samples + "<span style=\"color:Tomato\">" + line[3:] + "</span>"
         elif line.startswith('E '):
             samples = samples + "<span style=\"color:Tomato\">" + line[2:] + "</span>"
         else:
@@ -39,7 +49,7 @@ def mdToHtml(file_name, files_resolver=None):
                 assignment_name = line[13:].strip()
             elif 'CRT_HW END' in line:
                 assignment = text
-            elif line.startswith(('T ', 'I ', 'O ', 'X ', 'E ')):
+            elif line.startswith(('T ', 'I ', 'IB ', 'IF ', 'O ', 'OB ', 'OF ', 'X ', 'E ', 'EB ')):
                 examples.append(line)
             elif line.startswith('HT '):
                 break
