@@ -16,6 +16,16 @@ from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_c
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
+def find_codeval_file(codeval_dir, assignment_name):
+    """Find a codeval file by assignment name, case-insensitive.
+    Returns the full path if found, or None if not found."""
+    target = f"{assignment_name}.codeval".lower()
+    for f in os.listdir(codeval_dir):
+        if f.lower() == target:
+            return os.path.join(codeval_dir, f)
+    return None
+
+
 def get_github_repo_url(course, user_id, config_parser, github_field="github"):
     """
     Get the GitHub repo URL for a user in a course.
@@ -127,9 +137,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         assignment_name = match.group(2)
         submission_dir = os.path.abspath(os.path.join(dirpath, "submission"))
 
-        codeval_file = os.path.join(codeval_dir, f"{assignment_name}.codeval")
-        if not os.path.exists(codeval_file):
-            warn(f"no codeval file found for {assignment_name} in {codeval_file}")
+        codeval_file = find_codeval_file(codeval_dir, assignment_name)
+        if not codeval_file:
+            warn(f"no codeval file found for {assignment_name} in {codeval_dir}")
             continue
 
         # First pass: get CTO, CD tags, and collect Z files (don't extract yet)
@@ -276,8 +286,8 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
                     continue
 
                 # Only download if a corresponding codeval file exists
-                codeval_file = os.path.join(codeval_dir, f"{despace(assignment.name)}.codeval")
-                if not os.path.exists(codeval_file):
+                codeval_file = find_codeval_file(codeval_dir, despace(assignment.name))
+                if not codeval_file:
                     continue
 
                 info(f"downloading submissions for {course.name}: {assignment.name}")
@@ -413,9 +423,9 @@ def list_codeval_assignments(course_name):
     if not os.path.isdir(codeval_dir):
         raise click.UsageError(f"CODEVAL directory does not exist: {codeval_dir}")
 
-    # Get all codeval files in the directory
-    codeval_files = {f[:-8] for f in os.listdir(codeval_dir) if f.endswith('.codeval')}
-    matched_codeval_files = set()
+    # Get all codeval files in the directory (map lowercase name -> original name)
+    codeval_files = {f[:-8].lower(): f[:-8] for f in os.listdir(codeval_dir) if f.endswith('.codeval')}
+    matched_codeval_keys = set()
 
     (canvas, user) = connect_to_canvas()
     courses = get_courses(canvas, course_name or "", is_active=True)
@@ -425,12 +435,12 @@ def list_codeval_assignments(course_name):
 
     for course in courses:
         for assignment in course.get_assignments():
-            assignment_key = despace(assignment.name)
+            assignment_key = despace(assignment.name).lower()
             if assignment_key in codeval_files:
-                matched_codeval_files.add(assignment_key)
+                matched_codeval_keys.add(assignment_key)
                 info(f"{course.name}: {assignment.name}")
 
     # Report codeval files that don't match any assignment
-    unmatched = codeval_files - matched_codeval_files
-    for codeval_name in sorted(unmatched):
-        error(f"codeval file has no matching assignment: {codeval_name}.codeval")
+    unmatched_keys = set(codeval_files.keys()) - matched_codeval_keys
+    for key in sorted(unmatched_keys):
+        error(f"codeval file has no matching assignment: {codeval_files[key]}.codeval")
