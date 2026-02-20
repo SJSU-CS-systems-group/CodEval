@@ -61,10 +61,152 @@ def get_github_repo_url(course, user_id, config_parser, github_field="github"):
         return None
 
 
+def _get_canvas_config():
+    """Get Canvas URL and token from config."""
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    return parser['SERVER']['url'].rstrip('/'), parser['SERVER']['token']
+
+
+_HTML_TEMPLATE_HEAD = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CodEval Submission Results</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+    .card {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      padding: 20px 24px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-top: 0;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    .meta div {
+      margin-right: 16px;
+      margin-bottom: 4px;
+    }
+    .code-block {
+      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>CodEval Submission Results</h1>
+"""
+
+
+def write_html_file(dirpath):
+    import html as _html
+    assignment_name = student_name = attempt_no = last_submitted = ""
+    with open(f"{dirpath}/metadata.txt", "r") as f:
+        for line in f:
+            if line.startswith("assignment="):
+                assignment_name = line.strip().split("=", 1)[1]
+            elif line.startswith("name="):
+                student_name = line.strip().split("=", 1)[1]
+            elif line.startswith("attempt="):
+                attempt_no = line.strip().split("=", 1)[1]
+            elif line.startswith("date="):
+                last_submitted = line.strip().split("=", 1)[1]
+
+    with open(f"{dirpath}/comments.txt", "r") as f:
+        comments_content = f.read()
+
+    with open(f"{dirpath}/results.html", "w") as fd:
+        fd.write(_HTML_TEMPLATE_HEAD)
+        fd.write(f'<h3>Assignment: {_html.escape(assignment_name)}</h3>')
+        fd.write(f'<div class="meta"><div><strong>Student:</strong> {_html.escape(student_name)}</div></div>')
+        fd.write(f'<div class="meta"><div><strong>Submitted:</strong> {_html.escape(last_submitted)}</div></div>')
+        fd.write(f'<h3>Attempt: {_html.escape(attempt_no)}</h3>')
+        fd.write(f'<div class="code-block">{_html.escape(comments_content)}</div>')
+        fd.write('  </div>\n</body>\n</html>')
+
+
+def upload_file_for_comment(canvas, course_id, assignment_id, user_id, file_path):
+    """
+    Upload a file to attach to a submission comment.
+    Returns the file_id to use when creating/editing the comment.
+    """
+    canvas_url, canvas_token = _get_canvas_config()
+    auth = {'Authorization': f'Bearer {canvas_token}'}
+
+    file_name = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    # Step 1: Request upload URL
+    r1 = requests.post(
+        f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments/files',
+        headers=auth,
+        data={'name': file_name, 'size': file_size, 'content_type': 'text/html'}
+    )
+    r1.raise_for_status()
+    upload_info = r1.json()
+
+    # Step 2: Upload file to storage
+    with open(file_path, 'rb') as f:
+        r2 = requests.post(
+            upload_info['upload_url'],
+            data=upload_info['upload_params'],
+            files={'file': (file_name, f, 'text/html')},
+            allow_redirects=False
+        )
+
+    # Step 3: Confirm upload
+    if r2.status_code in (301, 302, 303):
+        r3 = requests.get(r2.headers['Location'], headers=auth)
+        r3.raise_for_status()
+        return r3.json()['id']
+    else:
+        r2.raise_for_status()
+        return r2.json()['id']
+
+
+def delete_submission_comment(canvas, course_id, assignment_id, user_id, comment_id):
+    """Delete a submission comment."""
+    canvas_url, canvas_token = _get_canvas_config()
+    resp = requests.delete(
+        f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments/{comment_id}',
+        headers={'Authorization': f'Bearer {canvas_token}'}
+    )
+    resp.raise_for_status()
+
+
 @click.command()
 @click.argument("submissions_dir", metavar="SUBMISSIONS_DIR")
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
-def upload_submission_comments(submissions_dir, codeval_prefix):
+@click.option("--delete", is_flag=True, help="deletes the previous comment before uploading")
+def upload_submission_comments(submissions_dir, codeval_prefix, delete):
     """
     Upload comments for submissions from a directory.
 
@@ -75,31 +217,46 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
     if the file comments.txt.sent exists, the comment has already been uploaded and will be skipped.
     """
     (canvas, user) = connect_to_canvas()
-    clean_submissions_dir = submissions_dir.rstrip('/')
+    clean_submissions_dir = submissions_dir.rstrip('/').replace('\\', '/')
     for dirpath, dirnames, filenames in os.walk(clean_submissions_dir):
-        match = re.match(fr'^{clean_submissions_dir}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
+        dirpath = dirpath.replace('\\', '/')
+        match = re.match(fr'^{re.escape(clean_submissions_dir)}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
         if match:
             course_name = match.group(1)
             assignment_name = match.group(2)
             student_id = match.group(3)
-            if "comments.txt" in filenames:
-                if "comments.txt.sent" in filenames:
-                    info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
-                else:
-                    info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
-                    course = get_course(canvas, course_name)
-                    assignment = get_assignment(course, assignment_name)
+            if "comments.txt.sent" in filenames:
+                info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
+            elif "comments.txt" in filenames:
+                info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
+                course = get_course(canvas, course_name)
+                assignment = get_assignment(course, assignment_name)
+                submission = get_submissions_by_id(assignment).get(student_id)
+                if submission:
+                    write_html_file(dirpath)
+                    file_id = upload_file_for_comment(canvas, course.id, assignment.id, student_id, f"{dirpath}/results.html")
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read(4096)
-                        # nulls seem to be very problematic for canvas
-                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
-                        submission = get_submissions_by_id(assignment).get(student_id)
-                        if submission:
-                            submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
-                        else:
-                            warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
-                    with open(f"{dirpath}/comments.txt.sent", "w") as fd:
-                        fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+                        comment = fd.read()
+                        comment = comment.replace("\0", "\\0").strip()
+                    first_line = next((line for line in comment.split('\n') if line.strip()), comment[:200])
+                    if delete:
+                        all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
+                        if all_comments:
+                            last_comment_id = all_comments[-1]["id"]
+                            delete_submission_comment(canvas, course.id, assignment.id, student_id, last_comment_id)
+                    canvas_url, canvas_token = _get_canvas_config()
+                    requests.put(
+                        f'{canvas_url}/api/v1/courses/{course.id}/assignments/{assignment.id}/submissions/{student_id}',
+                        headers={'Authorization': f'Bearer {canvas_token}'},
+                        data={
+                            'comment[text_comment]': f'{codeval_prefix}{first_line}',
+                            'comment[file_ids][]': file_id,
+                        }
+                    ).raise_for_status()
+                else:
+                    warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
+                with open(f"{dirpath}/comments.txt.sent", "w") as fd:
+                    fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 
 
 @click.command()
@@ -397,7 +554,7 @@ github_repo={github_repo or ''}""", file=fd)
 @cache
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
-    for submission in assignment.get_submissions(include=["user"]):
+    for submission in assignment.get_submissions(include=["submission_comments", "user"]):
         student_id = str(submission.user_id)
         submissions_by_id[student_id] = submission
     return submissions_by_id
