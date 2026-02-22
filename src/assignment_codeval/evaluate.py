@@ -774,6 +774,27 @@ def parse_diff(diff_lines: list[str], testing_dir: str):
                     outfile.write(line)
 
 
+def _find_touched_files(pre_run_timestamp):
+    """Find files touched (modified or accessed) since pre_run_timestamp.
+
+    Recursively scans the current working directory, ignoring TESTING_DIR.
+    """
+    touched = []
+    for dirpath, dirnames, filenames in os.walk("."):
+        # Prune TESTING_DIR from traversal
+        if TESTING_DIR in dirnames:
+            dirnames.remove(TESTING_DIR)
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            try:
+                st = os.stat(filepath)
+                if st.st_mtime > pre_run_timestamp or st.st_atime > pre_run_timestamp:
+                    touched.append(filepath)
+            except OSError:
+                continue
+    return touched
+
+
 def check_test():
     global test_args
     if test_args == "":
@@ -781,6 +802,9 @@ def check_test():
 
     print(f"Test case {test_case_count} of {test_case_total}")
     passed = True
+
+    # Record timestamp before running student code for file tracking
+    pre_run_timestamp = time.time()
 
     with open(get_testing_path("fileinput"), "rb") as fileinput, open(
         get_testing_path("youroutput"), "w"
@@ -796,6 +820,9 @@ def check_test():
     except subprocess.TimeoutExpired:
         print(f"Took more than {timeout_val} seconds to run. FAIL")
         passed = False
+
+    # Find files touched by student's program
+    touched_files = _find_touched_files(pre_run_timestamp)
 
     # Difflog handling
     with open(get_testing_path("difflog"), "w") as outfile:
@@ -871,6 +898,33 @@ def check_test():
 
                     # Print entire file
                     print("".join(file_lines))
+
+            # Show diffs for files touched by student's program
+            if touched_files and cmps:
+                expected_map = {}
+                for file_pair in cmps:
+                    if len(file_pair) >= 2:
+                        expected_map[os.path.normpath(file_pair[0])] = file_pair[1]
+
+                for filepath in touched_files:
+                    normalized = os.path.normpath(filepath)
+                    if normalized in expected_map:
+                        expected_file = expected_map[normalized]
+                        if os.path.exists(expected_file):
+                            diff_proc = subprocess.Popen(
+                                ["diff", "-U1", "-a", filepath, expected_file],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                            )
+                            diff_output, _ = diff_proc.communicate()
+                            if diff_output:
+                                print(f"    File output diff ({os.path.basename(filepath)}):")
+                                lines = diff_output.splitlines()
+                                for line in lines[:22]:
+                                    print(f"    {line}")
+                                if len(lines) > 22:
+                                    print(f"    ... ({len(lines) - 22} more lines)")
 
         cleanup()
 
