@@ -5,6 +5,7 @@ import subprocess
 import time
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -61,10 +62,129 @@ def get_github_repo_url(course, user_id, config_parser, github_field="github"):
         return None
 
 
+def _get_canvas_config():
+    """Get Canvas URL and token from config."""
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    return parser['SERVER']['url'].rstrip('/'), parser['SERVER']['token']
+
+
+def write_html_file(dirpath):
+    import html as _html
+
+    assignment_name = student_name = attempt_no = last_submitted = ""
+    with open(f"{dirpath}/metadata.txt", "r") as f:
+        for line in f:
+            if line.startswith("assignment="):
+                assignment_name = line.strip().split("=", 1)[1]
+            elif line.startswith("name="):
+                student_name = line.strip().split("=", 1)[1]
+            elif line.startswith("attempt="):
+                attempt_no = line.strip().split("=", 1)[1]
+            elif line.startswith("date="):
+                last_submitted = line.strip().split("=", 1)[1]
+
+    with open(f"{dirpath}/comments.txt", "r") as f:
+        comments_content = f.read()
+
+    # Color each line based on PASS/FAIL/error keywords
+    def colorize_lines(text):
+        lines_html = []
+        for line in text.split('\n'):
+            escaped = _html.escape(line)
+            if line.startswith('PASS'):
+                lines_html.append(f'<span class="pass">{escaped}</span>')
+            elif line.startswith('FAIL'):
+                lines_html.append(f'<span class="fail">{escaped}</span>')
+            elif any(line.startswith(k) for k in ('ERROR', 'TOOK LONGER', 'FAILED')):
+                lines_html.append(f'<span class="error">{escaped}</span>')
+            else:
+                lines_html.append(escaped)
+        return '\n'.join(lines_html)
+
+    try:
+        dt = datetime.strptime(last_submitted, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+        dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+        last_submitted = dt.strftime('%B %d, %Y at %I:%M %p %Z')
+    except (ValueError, TypeError):
+        pass
+
+    pass_count = sum(1 for l in comments_content.split('\n') if l.startswith('PASS'))
+    fail_count = sum(1 for l in comments_content.split('\n') if l.startswith('FAIL'))
+
+    template_path = os.path.join(os.path.dirname(__file__), 'test_template.html')
+    with open(template_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    html_content = (html_content
+        .replace('{{ASSIGNMENT_NAME}}', _html.escape(assignment_name))
+        .replace('{{STUDENT_NAME}}', _html.escape(student_name))
+        .replace('{{SUBMITTED}}', _html.escape(last_submitted))
+        .replace('{{ATTEMPT}}', _html.escape(attempt_no))
+        .replace('{{PASS_COUNT}}', str(pass_count))
+        .replace('{{FAIL_COUNT}}', str(fail_count))
+        .replace('{{OUTPUT}}', colorize_lines(comments_content))
+    )
+
+    with open(f"{dirpath}/results.html", "w", encoding="utf-8") as dst:
+        dst.write(html_content)
+
+
+def upload_file_for_comment(canvas, course_id, assignment_id, user_id, file_path):
+    """
+    Upload a file to attach to a submission comment.
+    Returns the file_id to use when creating/editing the comment.
+    """
+    canvas_url, canvas_token = _get_canvas_config()
+    auth = {'Authorization': f'Bearer {canvas_token}'}
+
+    file_name = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    # Step 1: Request upload URL
+    r1 = requests.post(
+        f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments/files',
+        headers=auth,
+        data={'name': file_name, 'size': file_size, 'content_type': 'text/html'}
+    )
+    r1.raise_for_status()
+    upload_info = r1.json()
+
+    # Step 2: Upload file to storage
+    with open(file_path, 'rb') as f:
+        r2 = requests.post(
+            upload_info['upload_url'],
+            data=upload_info['upload_params'],
+            files={'file': (file_name, f, 'text/html')},
+            allow_redirects=False
+        )
+
+    # Step 3: Confirm upload
+    if r2.status_code in (301, 302, 303):
+        r3 = requests.get(r2.headers['Location'], headers=auth)
+        r3.raise_for_status()
+        return r3.json()['id']
+    else:
+        r2.raise_for_status()
+        return r2.json()['id']
+
+
+def delete_submission_comment(canvas, course_id, assignment_id, user_id, comment_id):
+    """Delete a submission comment."""
+    canvas_url, canvas_token = _get_canvas_config()
+    resp = requests.delete(
+        f'{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}/comments/{comment_id}',
+        headers={'Authorization': f'Bearer {canvas_token}'}
+    )
+    resp.raise_for_status()
+
+
 @click.command()
 @click.argument("submissions_dir", metavar="SUBMISSIONS_DIR")
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
-def upload_submission_comments(submissions_dir, codeval_prefix):
+@click.option("--delete", is_flag=True, help="deletes the previous comment before uploading")
+def upload_submission_comments(submissions_dir, codeval_prefix, delete):
     """
     Upload comments for submissions from a directory.
 
@@ -75,31 +195,45 @@ def upload_submission_comments(submissions_dir, codeval_prefix):
     if the file comments.txt.sent exists, the comment has already been uploaded and will be skipped.
     """
     (canvas, user) = connect_to_canvas()
-    clean_submissions_dir = submissions_dir.rstrip('/')
+    clean_submissions_dir = submissions_dir.rstrip('/').replace('\\', '/')
     for dirpath, dirnames, filenames in os.walk(clean_submissions_dir):
-        match = re.match(fr'^{clean_submissions_dir}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
+        dirpath = dirpath.replace('\\', '/')
+        match = re.match(fr'^{re.escape(clean_submissions_dir)}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
         if match:
             course_name = match.group(1)
             assignment_name = match.group(2)
             student_id = match.group(3)
-            if "comments.txt" in filenames:
-                if "comments.txt.sent" in filenames:
-                    info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
-                else:
-                    info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
-                    course = get_course(canvas, course_name)
-                    assignment = get_assignment(course, assignment_name)
+            if "comments.txt.sent" in filenames:
+                info(f"skipping already uploaded comments for {student_id} in {course_name}: {assignment_name}")
+            elif "comments.txt" in filenames:
+                info(f"uploading comments for {student_id} in {course_name}: {assignment_name}")
+                course = get_course(canvas, course_name)
+                assignment = get_assignment(course, assignment_name)
+                submission = get_submissions_by_id(assignment).get(student_id)
+                if submission:
+                    write_html_file(dirpath)
+                    file_id = upload_file_for_comment(canvas, course.id, assignment.id, student_id, f"{dirpath}/results.html")
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read(4096)
-                        # nulls seem to be very problematic for canvas
-                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
-                        submission = get_submissions_by_id(assignment).get(student_id)
-                        if submission:
-                            submission.edit(comment={'text_comment': f'{codeval_prefix}<pre>\n{comment}</pre>'})
-                        else:
-                            warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
-                    with open(f"{dirpath}/comments.txt.sent", "w") as fd:
-                        fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+                        comment = fd.read()
+                        comment = comment.replace("\0", "\\0").strip()
+                    if delete:
+                        all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
+                        if all_comments:
+                            last_comment_id = all_comments[-1]["id"]
+                            delete_submission_comment(canvas, course.id, assignment.id, student_id, last_comment_id)
+                    canvas_url, canvas_token = _get_canvas_config()
+                    requests.put(
+                        f'{canvas_url}/api/v1/courses/{course.id}/assignments/{assignment.id}/submissions/{student_id}',
+                        headers={'Authorization': f'Bearer {canvas_token}'},
+                        data={
+                            'comment[text_comment]': f'{codeval_prefix.rstrip()}\n{comment}',
+                            'comment[file_ids][]': file_id,
+                        }
+                    ).raise_for_status()
+                else:
+                    warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
+                with open(f"{dirpath}/comments.txt.sent", "w") as fd:
+                    fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 
 
 @click.command()
@@ -334,7 +468,7 @@ def _download_assignment_submissions(canvas, course, assignment, target_dir, inc
             continue
 
         submission_comments = [c['created_at'] for c in submission.submission_comments if
-                               'comment' in c and c['comment'].startswith(codeval_prefix)]
+                               'comment' in c and c['comment'].startswith(codeval_prefix.rstrip())]
         submission_comments.sort()
         if submission_comments:
             last_comment_date = submission_comments[-1]
@@ -397,7 +531,7 @@ github_repo={github_repo or ''}""", file=fd)
 @cache
 def get_submissions_by_id(assignment):
     submissions_by_id = {}
-    for submission in assignment.get_submissions(include=["user"]):
+    for submission in assignment.get_submissions(include=["submission_comments", "user"]):
         student_id = str(submission.user_id)
         submissions_by_id[student_id] = submission
     return submissions_by_id
