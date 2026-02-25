@@ -5,6 +5,7 @@ import subprocess
 import time
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from functools import cache
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -69,65 +70,9 @@ def _get_canvas_config():
     return parser['SERVER']['url'].rstrip('/'), parser['SERVER']['token']
 
 
-_HTML_TEMPLATE_HEAD = """<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>CodEval Submission Results</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: #f5f5f5;
-      padding: 20px;
-    }
-    .card {
-      max-width: 900px;
-      margin: 0 auto;
-      background: #ffffff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      padding: 20px 24px;
-    }
-    h1 {
-      font-size: 1.4rem;
-      margin-top: 0;
-      text-align: center;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 8px;
-    }
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      font-size: 0.9rem;
-      margin-bottom: 8px;
-    }
-    .meta div {
-      margin-right: 16px;
-      margin-bottom: 4px;
-    }
-    .code-block {
-      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      background: #f9f9f9;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      padding: 8px;
-      font-size: 0.85rem;
-      white-space: pre-wrap;
-      word-break: break-all;
-      margin-bottom: 8px;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>CodEval Submission Results</h1>
-"""
-
-
 def write_html_file(dirpath):
     import html as _html
+
     assignment_name = student_name = attempt_no = last_submitted = ""
     with open(f"{dirpath}/metadata.txt", "r") as f:
         for line in f:
@@ -143,14 +88,47 @@ def write_html_file(dirpath):
     with open(f"{dirpath}/comments.txt", "r") as f:
         comments_content = f.read()
 
-    with open(f"{dirpath}/results.html", "w") as fd:
-        fd.write(_HTML_TEMPLATE_HEAD)
-        fd.write(f'<h3>Assignment: {_html.escape(assignment_name)}</h3>')
-        fd.write(f'<div class="meta"><div><strong>Student:</strong> {_html.escape(student_name)}</div></div>')
-        fd.write(f'<div class="meta"><div><strong>Submitted:</strong> {_html.escape(last_submitted)}</div></div>')
-        fd.write(f'<h3>Attempt: {_html.escape(attempt_no)}</h3>')
-        fd.write(f'<div class="code-block">{_html.escape(comments_content)}</div>')
-        fd.write('  </div>\n</body>\n</html>')
+    # Color each line based on PASS/FAIL/error keywords
+    def colorize_lines(text):
+        lines_html = []
+        for line in text.split('\n'):
+            escaped = _html.escape(line)
+            if line.startswith('PASS'):
+                lines_html.append(f'<span class="pass">{escaped}</span>')
+            elif line.startswith('FAIL'):
+                lines_html.append(f'<span class="fail">{escaped}</span>')
+            elif any(line.startswith(k) for k in ('ERROR', 'TOOK LONGER', 'FAILED')):
+                lines_html.append(f'<span class="error">{escaped}</span>')
+            else:
+                lines_html.append(escaped)
+        return '\n'.join(lines_html)
+
+    try:
+        dt = datetime.strptime(last_submitted, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+        dt = dt.astimezone(ZoneInfo('America/Los_Angeles'))
+        last_submitted = dt.strftime('%B %d, %Y at %I:%M %p %Z')
+    except (ValueError, TypeError):
+        pass
+
+    pass_count = sum(1 for l in comments_content.split('\n') if l.startswith('PASS'))
+    fail_count = sum(1 for l in comments_content.split('\n') if l.startswith('FAIL'))
+
+    template_path = os.path.join(os.path.dirname(__file__), 'test_template.html')
+    with open(template_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    html_content = (html_content
+        .replace('{{ASSIGNMENT_NAME}}', _html.escape(assignment_name))
+        .replace('{{STUDENT_NAME}}', _html.escape(student_name))
+        .replace('{{SUBMITTED}}', _html.escape(last_submitted))
+        .replace('{{ATTEMPT}}', _html.escape(attempt_no))
+        .replace('{{PASS_COUNT}}', str(pass_count))
+        .replace('{{FAIL_COUNT}}', str(fail_count))
+        .replace('{{OUTPUT}}', colorize_lines(comments_content))
+    )
+
+    with open(f"{dirpath}/results.html", "w", encoding="utf-8") as dst:
+        dst.write(html_content)
 
 
 def upload_file_for_comment(canvas, course_id, assignment_id, user_id, file_path):
@@ -238,7 +216,6 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                     with open(f"{dirpath}/comments.txt", "r") as fd:
                         comment = fd.read()
                         comment = comment.replace("\0", "\\0").strip()
-                    first_line = next((line for line in comment.split('\n') if line.strip()), comment[:200])
                     if delete:
                         all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
                         if all_comments:
@@ -249,7 +226,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                         f'{canvas_url}/api/v1/courses/{course.id}/assignments/{assignment.id}/submissions/{student_id}',
                         headers={'Authorization': f'Bearer {canvas_token}'},
                         data={
-                            'comment[text_comment]': f'{codeval_prefix}{first_line}',
+                            'comment[text_comment]': f'{codeval_prefix.rstrip()}\n{comment}',
                             'comment[file_ids][]': file_id,
                         }
                     ).raise_for_status()
@@ -491,7 +468,7 @@ def _download_assignment_submissions(canvas, course, assignment, target_dir, inc
             continue
 
         submission_comments = [c['created_at'] for c in submission.submission_comments if
-                               'comment' in c and c['comment'].startswith(codeval_prefix)]
+                               'comment' in c and c['comment'].startswith(codeval_prefix.rstrip())]
         submission_comments.sort()
         if submission_comments:
             last_comment_date = submission_comments[-1]
