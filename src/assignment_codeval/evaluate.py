@@ -1,5 +1,6 @@
 #! /usr/bin/python3
 
+import ast
 import os
 import re
 import subprocess
@@ -80,6 +81,158 @@ def compile_code(compile_command):
         sys.exit(1)
 
 
+###########################################################
+# Function detection helpers
+###########################################################
+
+
+def _detect_language(files):
+    """Return 'c_cpp', 'java', 'python', or 'unknown' based on file extensions."""
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        if ext in ('.c', '.cpp', '.cc', '.cxx', '.h', '.hpp'):
+            return 'c_cpp'
+        if ext == '.java':
+            return 'java'
+        if ext == '.py':
+            return 'python'
+    return 'unknown'
+
+
+def _find_compiled_artifact(source_file):
+    """Return the compiled artifact for a source file, or None if not found.
+
+    Checks (in order): same base name with .o, .exe, and no extension.
+    """
+    base = os.path.splitext(source_file)[0]
+    for candidate in (base + '.o', base + '.exe', base):
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _function_used_in_c_cpp(function_name, files):
+    """Use objdump on compiled artifacts to detect C/C++ function usage.
+
+    Returns True if found, False if artifact exists but function absent,
+    None if no compiled artifact was found (caller should fall back).
+    """
+    found_artifact = False
+    for source_file in files:
+        artifact = _find_compiled_artifact(source_file)
+        if artifact is None:
+            continue
+        found_artifact = True
+        # objdump -t dumps the symbol table; pipe through c++filt to demangle C++ names.
+        # Mangled C++ names embed the original identifier, so grep -w finds exact matches.
+        cmd = f"objdump -t '{artifact}' | c++filt | grep -w '{function_name}'"
+        result = subprocess.run(
+            ["bash", "-c", cmd],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode == 0:
+            return True
+    if not found_artifact:
+        return None
+    return False
+
+
+def _function_used_in_java(function_name, files):
+    """Use javap on compiled .class files to detect Java method usage.
+
+    Returns True if found, False if class file exists but method absent,
+    None if no .class file was found (caller should fall back).
+    """
+    found_class = False
+    for source_file in files:
+        base = os.path.splitext(source_file)[0]
+        class_file = base + '.class'
+        if not os.path.exists(class_file):
+            continue
+        found_class = True
+        # javap -c disassembles bytecode; method invocations reference the method name.
+        result = subprocess.run(
+            ["javap", "-c", class_file],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if function_name.encode() in result.stdout:
+            return True
+    if not found_class:
+        return None
+    return False
+
+
+def _function_used_in_python(function_name, files):
+    """Use the ast module to detect function calls in Python source files.
+
+    Returns True if a matching call is found, False otherwise.
+    Handles both direct calls (func()) and attribute calls (obj.func()).
+    """
+    for source_file in files:
+        try:
+            with open(source_file, 'r') as f:
+                source = f.read()
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call):
+                    func = node.func
+                    if isinstance(func, ast.Name) and func.id == function_name:
+                        return True
+                    if isinstance(func, ast.Attribute) and func.attr == function_name:
+                        return True
+        except (SyntaxError, OSError):
+            continue
+    return False
+
+
+def _function_used_regex(function_name, files):
+    """Legacy regex-based fallback used when no compiled artifact is available."""
+    regex = rf'(^|[^[:alnum:]_]){function_name}[[:space:]]*\('
+    cmd = (
+        "sed -E "
+        "'"
+        "s://.*$::g; "
+        "s:#.*$::g; "
+        ":a; /\\/\\*/{N; s:/\\*.*?\\*/::g; ba}"
+        "' "
+        + " ".join(files)
+        + f" | grep -E '{regex}'"
+    )
+    result = subprocess.run(
+        ["bash", "-c", cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.returncode == 0
+
+
+def _is_function_used(function_name, files):
+    """Detect whether function_name is used in the given files.
+
+    Dispatches to the appropriate tool based on file language:
+      - C/C++:  objdump on compiled artifact (falls back to regex if none found)
+      - Java:   javap on .class file (falls back to regex if none found)
+      - Python: ast module on source
+      - Other:  regex on source
+    """
+    lang = _detect_language(files)
+    if lang == 'python':
+        return _function_used_in_python(function_name, files)
+    if lang == 'java':
+        result = _function_used_in_java(function_name, files)
+        if result is None:
+            return _function_used_regex(function_name, files)
+        return result
+    if lang == 'c_cpp':
+        result = _function_used_in_c_cpp(function_name, files)
+        if result is None:
+            return _function_used_regex(function_name, files)
+        return result
+    return _function_used_regex(function_name, files)
+
+
 def check_function(args):
     """Will be followed by a function name and a list of files to check to ensure that the function
     is used by one of those files.
@@ -96,36 +249,10 @@ def check_function(args):
     function_name = args[0]
     files = args[1:]
 
-    # Match:
-    #  [1] start of line OR non-identifier character
-    #  [2] function name
-    #  [3] optional whitespace
-    #  [4] opening parenthesis (function call)
-    regex = rf'(^|[^[:alnum:]_]){function_name}[[:space:]]*\('
-
-    # Strip comments, then search
-    cmd = (
-        "sed -E "
-        "'"
-        "s://.*$::g; " # C/C++ single-line comments
-        "s:#.*$::g; " # Python single-line comments
-        ":a; /\\/\\*/{N; s:/\\*.*?\\*/::g; ba}"
-        "' "
-        + " ".join(files)
-        + f" | grep -E '{regex}'"
-    )
-
-    function_popen = subprocess.Popen(
-        ["bash", "-c", cmd],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    function_popen.communicate()
-    if function_popen.returncode:
-        print(f"Not using {function_name} FAILED")
-    else:
+    if _is_function_used(function_name, files):
         print(f"Used {function_name} PASSED")
+    else:
+        print(f"Not using {function_name} FAILED")
 
 def check_object(args):
     """Will be followed by an object and a list of files to ensure that the function is
@@ -228,7 +355,7 @@ def check_not_function(args):
     is not used by any of those files.
 
     Arguments:
-        function_name: the funcion name to check files for usage of
+        function_name: the function name to check files for usage of
         *files: the files to check for the function name
 
     Returns:
@@ -239,18 +366,10 @@ def check_not_function(args):
     function_name = args[0]
     files = args[1:]
 
-    # Surpress output
-    function_popen = subprocess.Popen(
-        ["grep", f"[^[:alpha:]]{function_name}[[:space:]]*("] + files,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    function_popen.communicate()
-    if function_popen.returncode:
-        print(f"used{function_name} PASSED")
+    if _is_function_used(function_name, files):
+        print(f"Used {function_name} FAILED")
     else:
-        print(f"not using {function_name} FAILED")
+        print(f"Not using {function_name} PASSED")
 
 
 def run_command(command):
