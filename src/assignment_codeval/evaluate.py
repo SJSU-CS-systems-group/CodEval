@@ -253,6 +253,19 @@ def check_not_function(args):
         print(f"not using {function_name} FAILED")
 
 
+def print_label(text):
+    """Print a label/message to stdout.
+
+    Arguments:
+        text: the text to print
+
+    Returns:
+        None
+    """
+    check_test()
+    print(text)
+
+
 def run_command(command):
     """Will be followed by a command to run.
 
@@ -578,6 +591,7 @@ tag_func_map = {
     "CO" : check_object,
     "CC": check_container,
     "NCF": check_not_function,
+    "PRINT": print_label,
     "CMD": run_command,
     "TCMD": run_command_noerror,
     "CMP": compare,
