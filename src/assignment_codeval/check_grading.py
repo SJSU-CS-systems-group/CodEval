@@ -152,7 +152,7 @@ def _has_codeval_comment_after_submission(submission_node, codeval_prefix):
 @click.option("--warn", "-w", is_flag=True, help="Show warnings for recent submissions awaiting comments")
 @click.option("--max-comment-delay", default=30, show_default=True,
               help="Minutes to allow before flagging a missing comment as an error")
-def check_codeval(course_name, assignment_group, codeval_prefix, verbose, warn, max_comment_delay):
+def check_grading(course_name, assignment_group, codeval_prefix, verbose, warn, max_comment_delay):
     """Check which submissions are missing a codeval comment.
 
     Shows submissions that have not been evaluated by codeval, or where
@@ -225,7 +225,7 @@ def check_codeval(course_name, assignment_group, codeval_prefix, verbose, warn, 
         total_warned += len(warned)
 
         if missing or warned or verbose:
-            parts = [f"{len(missing)}/{checked} missing codeval"]
+            parts = [f"{len(missing)}/{checked} missing grading"]
             click.echo(f"\n{assignment_name}: {', '.join(parts)}")
 
         if not verbose and missing:

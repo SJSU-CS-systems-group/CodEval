@@ -2,7 +2,7 @@
 
 import pytest
 
-from assignment_codeval.check_codeval import _has_codeval_comment_after_submission
+from assignment_codeval.check_grading import _has_codeval_comment_after_submission
 
 
 def _make_submission(submitted_at, comments=None):
