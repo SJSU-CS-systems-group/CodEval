@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.24
+
+- Convert recent-comments to use Canvas GraphQL API instead of REST for faster performance
+- Extract shared GraphQL helpers (get_canvas_credentials, graphql_request, fetch_all_submissions) to canvas_utils.py
+- Fix missing comments when a student has more than 20 codeval comments by sorting newest-first
+
 ## 0.0.23
 
 - Add check-grading command to find submissions missing a codeval comment
