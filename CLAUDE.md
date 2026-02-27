@@ -16,6 +16,7 @@ src/assignment_codeval/
 ├── ai_benchmark.py     # AI model testing (test-with-ai)
 ├── install_assignment.py # Install codeval files to local/remote destinations
 ├── recent_comments.py  # List recent codeval comments on Canvas
+├── check_grading.py    # Check which submissions are missing grading
 ├── convertMD2Html.py   # Markdown to HTML conversion
 ├── commons.py          # Shared utilities
 └── file_utils.py       # File handling utilities
@@ -25,6 +26,7 @@ tests/
 ├── test_create_assignment.py # Assignment creation tests
 ├── test_evaluate_submissions.py # Evaluate submissions tests
 ├── test_install_assignment.py # Install assignment tests
+├── test_check_grading.py     # Check grading tests
 └── sample_*.py               # Sample programs for testing
 ```
 
@@ -43,6 +45,7 @@ The CLI is `assignment-codeval` with these subcommands:
 | `list-codeval-assignments` | List assignments with codeval specs |
 | `install-assignment` | Copy codeval file and zip dependencies to local/remote path |
 | `recent-comments` | List recent codeval comments on Canvas submissions |
+| `check-grading` | Check which submissions are missing a codeval comment |
 | `test-with-ai` | Benchmark AI models on assignments |
 
 # Common Commands
@@ -87,4 +90,11 @@ assignment-codeval download-submissions --help
 - Add new commands in their own module, then register in cli.py
 - Canvas API interactions go through canvas_utils.py
 - GitHub interactions go through github_connect.py
+- Canvas GraphQL API is used in check_grading.py (credentials from codeval.ini config)
+
+# Environment Notes
+
+- System Python is externally-managed (Debian) — use `pipx` instead of `pip` for tools like build/twine
+- `pipx install --upgrade` is not valid; use `pipx install` or `pipx upgrade`
+- When verifying a PyPI release, use `pipx install --force assignment-codeval==X.Y.Z` to avoid cached versions
 
