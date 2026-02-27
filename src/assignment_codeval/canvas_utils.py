@@ -124,7 +124,7 @@ query SubmissionsQuery($assignmentId: ID!, $cursor: String) {
         user {
           name
         }
-        commentsConnection(filter: {allComments: true}) {
+        commentsConnection(filter: {allComments: true}, sortOrder: desc) {
           nodes {
             comment
             createdAt
