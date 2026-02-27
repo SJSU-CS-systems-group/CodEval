@@ -1,14 +1,15 @@
 """Check which submissions are missing a codeval comment newer than the submission."""
 
 import sys
-from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
 from math import floor
 
 import click
-import requests
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course
+from assignment_codeval.canvas_utils import (
+    connect_to_canvas, get_course,
+    get_canvas_credentials, graphql_request, fetch_all_submissions,
+)
 from assignment_codeval.commons import debug, error
 
 ASSIGNMENTS_QUERY = """
@@ -28,79 +29,6 @@ query AssignmentsQuery($courseId: ID!) {
   }
 }
 """
-
-SUBMISSIONS_QUERY = """
-query SubmissionsQuery($assignmentId: ID!, $cursor: String) {
-  assignment(id: $assignmentId) {
-    submissionsConnection(after: $cursor) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        _id
-        submittedAt
-        user {
-          name
-        }
-        commentsConnection(filter: {allComments: true}) {
-          nodes {
-            comment
-            createdAt
-          }
-        }
-      }
-    }
-  }
-}
-"""
-
-
-def _get_canvas_credentials():
-    """Read raw url and token from codeval.ini config file."""
-    parser = ConfigParser()
-    config_file = click.get_app_dir("codeval.ini")
-    parser.read(config_file)
-    if 'SERVER' not in parser:
-        error(f"did not find [SERVER] section in {config_file}.")
-        sys.exit(1)
-    for key in ['url', 'token']:
-        if key not in parser['SERVER']:
-            error(f"did not find {key} in [SERVER] in {config_file}.")
-            sys.exit(1)
-    return parser['SERVER']['url'], parser['SERVER']['token']
-
-
-def _graphql_request(base_url, token, query, variables):
-    """POST a GraphQL query to Canvas and return the data."""
-    url = f"{base_url}/api/graphql"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"query": query, "variables": variables}
-    resp = requests.post(url, json=payload, headers=headers)
-    resp.raise_for_status()
-    result = resp.json()
-    if "errors" in result:
-        error(f"GraphQL errors: {result['errors']}")
-        sys.exit(1)
-    return result["data"]
-
-
-def _fetch_all_submissions(base_url, token, assignment_id):
-    """Fetch all submissions for an assignment using relay pagination."""
-    all_nodes = []
-    cursor = None
-    while True:
-        variables = {"assignmentId": str(assignment_id)}
-        if cursor:
-            variables["cursor"] = cursor
-        data = _graphql_request(base_url, token, SUBMISSIONS_QUERY, variables)
-        conn = data["assignment"]["submissionsConnection"]
-        all_nodes.extend(conn["nodes"])
-        if conn["pageInfo"]["hasNextPage"]:
-            cursor = conn["pageInfo"]["endCursor"]
-        else:
-            break
-    return all_nodes
 
 
 def _format_elapsed(submitted_at_str):
@@ -160,10 +88,10 @@ def check_grading(course_name, assignment_group, codeval_prefix, verbose, warn, 
     """
     (canvas, user) = connect_to_canvas()
     course = get_course(canvas, course_name)
-    base_url, token = _get_canvas_credentials()
+    base_url, token = get_canvas_credentials()
 
     debug(f"fetching assignment groups for course {course.name} (id={course.id})")
-    data = _graphql_request(base_url, token, ASSIGNMENTS_QUERY, {"courseId": str(course.id)})
+    data = graphql_request(base_url, token, ASSIGNMENTS_QUERY, {"courseId": str(course.id)})
 
     groups = data["course"]["assignmentGroupsConnection"]["nodes"]
     target_group = None
@@ -192,7 +120,7 @@ def check_grading(course_name, assignment_group, codeval_prefix, verbose, warn, 
         assignment_name = assignment["name"]
         debug(f"checking assignment: {assignment_name}")
 
-        submissions = _fetch_all_submissions(base_url, token, assignment_id)
+        submissions = fetch_all_submissions(base_url, token, assignment_id)
 
         missing = []
         warned = []

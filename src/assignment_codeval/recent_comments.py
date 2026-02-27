@@ -7,8 +7,24 @@ from datetime import datetime, timedelta, timezone
 
 import click
 
-from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_courses
+from assignment_codeval.canvas_utils import (
+    connect_to_canvas, get_course, get_courses,
+    get_canvas_credentials, graphql_request, fetch_all_submissions,
+)
 from assignment_codeval.commons import despace
+
+COURSE_ASSIGNMENTS_QUERY = """
+query CourseAssignmentsQuery($courseId: ID!) {
+  course(id: $courseId) {
+    assignmentsConnection {
+      nodes {
+        _id
+        name
+      }
+    }
+  }
+}
+"""
 
 
 def format_comment_preview(comment: str, prefix: str) -> str:
@@ -127,67 +143,70 @@ def recent_comments(course_name, active, time_period, codeval_prefix, verbose, s
     else:
         courses = [get_course(canvas, course_name)]
 
+    base_url, token = get_canvas_credentials()
     total_comments = 0
     total_uncommented = 0
 
     for course in courses:
         if verbose:
             click.echo(f"Checking course: {course.name}", err=True)
-        for assignment in course.get_assignments():
+
+        data = graphql_request(base_url, token, COURSE_ASSIGNMENTS_QUERY,
+                               {"courseId": str(course.id)})
+        assignments = data["course"]["assignmentsConnection"]["nodes"]
+
+        for assignment in assignments:
+            assignment_name = assignment["name"]
+            assignment_id = assignment["_id"]
             if verbose:
-                click.echo(f"  Checking assignment: {assignment.name}", err=True)
+                click.echo(f"  Checking assignment: {assignment_name}", err=True)
 
             # Check if this assignment has a codeval file
             has_codeval = True
             if codeval_dir:
-                codeval_file = os.path.join(codeval_dir, f"{despace(assignment.name)}.codeval")
+                codeval_file = os.path.join(codeval_dir, f"{despace(assignment_name)}.codeval")
                 has_codeval = os.path.exists(codeval_file)
                 if not has_codeval:
                     if verbose:
                         click.echo(f"    (no codeval file)", err=True)
                     continue
 
+            submissions = fetch_all_submissions(base_url, token, assignment_id)
             assignment_comments = []
             uncommented_submissions = []
 
-            for submission in assignment.get_submissions(include=["submission_comments", "user"]):
-                student_name = submission.user.get('name', 'Unknown') if submission.user else 'Unknown'
+            for sub in submissions:
+                student_name = sub.get("user", {}).get("name", "Unknown")
+                comments = sub.get("commentsConnection", {}).get("nodes", [])
 
                 # Find codeval comments
                 codeval_comments = []
-                if submission.submission_comments:
-                    for comment in submission.submission_comments:
-                        comment_text = comment.get('comment', '')
-                        if not comment_text.startswith(codeval_prefix):
-                            continue
+                for comment in comments:
+                    comment_text = comment.get("comment", "")
+                    if not comment_text.startswith(codeval_prefix):
+                        continue
 
-                        created_at_str = comment.get('created_at', '')
-                        if not created_at_str:
-                            continue
+                    created_at_str = comment.get("createdAt", "")
+                    if not created_at_str:
+                        continue
 
-                        try:
-                            created_at = datetime.strptime(created_at_str, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
-                        except ValueError:
-                            continue
+                    created_at = datetime.fromisoformat(created_at_str)
+                    codeval_comments.append({
+                        'time': created_at,
+                        'comment': comment_text
+                    })
 
-                        codeval_comments.append({
+                    if created_at >= cutoff_time:
+                        assignment_comments.append({
+                            'student': student_name,
                             'time': created_at,
                             'comment': comment_text
                         })
 
-                        if created_at >= cutoff_time:
-                            assignment_comments.append({
-                                'student': student_name,
-                                'time': created_at,
-                                'comment': comment_text
-                            })
-
                 # Check for uncommented submissions
-                if show_uncommented and has_codeval and submission.submitted_at:
-                    try:
-                        submitted_at = datetime.strptime(submission.submitted_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
-                    except ValueError:
-                        continue
+                submitted_at_str = sub.get("submittedAt")
+                if show_uncommented and has_codeval and submitted_at_str:
+                    submitted_at = datetime.fromisoformat(submitted_at_str)
 
                     # Find the most recent codeval comment
                     last_codeval_time = None
@@ -203,7 +222,7 @@ def recent_comments(course_name, active, time_period, codeval_prefix, verbose, s
                         })
 
             if assignment_comments:
-                click.echo(f"\n{course.name}: {assignment.name}")
+                click.echo(f"\n{course.name}: {assignment_name}")
                 click.echo("-" * 60)
                 for c in sorted(assignment_comments, key=lambda x: x['time']):
                     time_str = format_local_time(c['time'])
@@ -214,7 +233,7 @@ def recent_comments(course_name, active, time_period, codeval_prefix, verbose, s
 
             if uncommented_submissions:
                 if not assignment_comments:
-                    click.echo(f"\n{course.name}: {assignment.name}")
+                    click.echo(f"\n{course.name}: {assignment_name}")
                     click.echo("-" * 60)
                 click.echo("  Uncommented submissions:")
                 for s in sorted(uncommented_submissions, key=lambda x: x['submitted']):

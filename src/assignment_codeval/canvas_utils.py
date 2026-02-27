@@ -5,6 +5,7 @@ from functools import cache
 from typing import NamedTuple
 
 import click
+import requests
 from canvasapi import Canvas
 from canvasapi.current_user import CurrentUser
 
@@ -107,3 +108,77 @@ def get_assignment(course, assignment_name):
             sys.exit(2)
     assignment = assignments[0]
     return assignment
+
+
+SUBMISSIONS_QUERY = """
+query SubmissionsQuery($assignmentId: ID!, $cursor: String) {
+  assignment(id: $assignmentId) {
+    submissionsConnection(after: $cursor) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        _id
+        submittedAt
+        user {
+          name
+        }
+        commentsConnection(filter: {allComments: true}) {
+          nodes {
+            comment
+            createdAt
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
+def get_canvas_credentials():
+    """Read raw url and token from codeval.ini config file."""
+    parser = ConfigParser()
+    config_file = click.get_app_dir("codeval.ini")
+    parser.read(config_file)
+    if 'SERVER' not in parser:
+        error(f"did not find [SERVER] section in {config_file}.")
+        sys.exit(1)
+    for key in ['url', 'token']:
+        if key not in parser['SERVER']:
+            error(f"did not find {key} in [SERVER] in {config_file}.")
+            sys.exit(1)
+    return parser['SERVER']['url'], parser['SERVER']['token']
+
+
+def graphql_request(base_url, token, query, variables):
+    """POST a GraphQL query to Canvas and return the data."""
+    url = f"{base_url}/api/graphql"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"query": query, "variables": variables}
+    resp = requests.post(url, json=payload, headers=headers)
+    resp.raise_for_status()
+    result = resp.json()
+    if "errors" in result:
+        error(f"GraphQL errors: {result['errors']}")
+        sys.exit(1)
+    return result["data"]
+
+
+def fetch_all_submissions(base_url, token, assignment_id):
+    """Fetch all submissions for an assignment using relay pagination."""
+    all_nodes = []
+    cursor = None
+    while True:
+        variables = {"assignmentId": str(assignment_id)}
+        if cursor:
+            variables["cursor"] = cursor
+        data = graphql_request(base_url, token, SUBMISSIONS_QUERY, variables)
+        conn = data["assignment"]["submissionsConnection"]
+        all_nodes.extend(conn["nodes"])
+        if conn["pageInfo"]["hasNextPage"]:
+            cursor = conn["pageInfo"]["endCursor"]
+        else:
+            break
+    return all_nodes
