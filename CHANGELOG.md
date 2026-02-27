@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.23
+
+- Add check-grading command to find submissions missing a codeval comment
+  - Shows elapsed time since submission for ungraded students
+  - --warn flag to show recent submissions awaiting comments
+  - --max-comment-delay to configure warning threshold
+  - --verbose flag to show all submissions
+
 ## 0.0.22
 
 - Fix HTML generation for create-assignment ignoring OF, OB, IF, IB, EB tags
