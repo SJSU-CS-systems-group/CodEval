@@ -1,0 +1,13 @@
+# Test CF/NCF tags on C++ using objdump-based detection.
+# Compiles sample_cf_functions.cpp then checks function presence via the symbol table.
+
+C g++ -o sample_cf_functions sample_cf_functions.cpp
+
+# greet() is defined and called — should PASS
+CF greet sample_cf_functions.cpp
+
+# forbidden_func is never defined or called — should PASS
+NCF forbidden_func sample_cf_functions.cpp
+
+T ./sample_cf_functions
+O Hello World
