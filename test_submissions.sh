@@ -5,7 +5,7 @@ PATH=$PATH:~/.local/bin
 set -e
 
 # use flock so that we don't have overlapping builds
-exec 200<> ~/deploy.lock
+exec 200<> deploy.lock
 flock -w 2 200
 
 if [ -d submissions ]
@@ -28,7 +28,7 @@ rm -rf submissions
 setfacl -d -m u:$(whoami):rwX .
 ulimit -f 1000000
 assignment-codeval download-submissions "$COURSE" --active --uncommented_for 20
-assignment-codeval github-setup-repo
+assignment-codeval github-setup-repo --clone-delay 4
 assignment-codeval evaluate-submissions
 assignment-codeval upload-submission-comments submissions
 
