@@ -1,6 +1,4 @@
 # Python CLI calculator
-# Based on cli-calc assignment (Downloads/assignments/cli-calc/cli_calc.codeval),
-# adapted as a Python implementation.
 
 CF int pycalc.py
 CF print pycalc.py

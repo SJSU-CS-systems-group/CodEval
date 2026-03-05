@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # Python CLI calculator
-# Based on cli-calc assignment, adapted for Python.
 #
 # Usage: pycalc.py number [+|- number]...
 

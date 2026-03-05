@@ -1,6 +1,4 @@
 # C++ CLI calculator - builds with make
-# Based on cli-calc assignment (Downloads/assignments/cli-calc/cli_calc.codeval),
-# adapted for C++ with a Makefile build.
 
 C make
 
