@@ -27,3 +27,6 @@ test = ["pytest>=7.0"]
 
 [project.scripts]
 assignment-codeval = "assignment_codeval.cli:cli"
+
+[tool.setuptools.package-data]
+assignment_codeval = ["*.html"]
