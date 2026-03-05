@@ -25,6 +25,28 @@ def get_codeval_folder(course):
     exit(2)
 
 
+def get_assignment_subfolder(course, codeval_folder, assignment_name):
+    """Get or create a subfolder under CodEval named after the assignment."""
+    subfolder_path = f"{codeval_folder.full_name}/{assignment_name}"
+    canvas_folders = course.get_folders()
+    for folder in canvas_folders:
+        if folder.full_name == subfolder_path:
+            return folder
+    # Create the subfolder if it doesn't exist
+    debug(f'Creating subfolder: {subfolder_path}')
+    return course.create_folder(assignment_name, parent_folder_id=codeval_folder.id)
+
+
+def extract_assignment_name(specname):
+    """Extract the assignment name from the CRT_HW START line of a codeval spec file."""
+    with open(specname, 'r') as f:
+        for line in f:
+            if 'CRT_HW START' in line:
+                return line[13:].strip()
+    error(f"could not find CRT_HW START in {specname}")
+    exit(2)
+
+
 def extract_file_macros(specname):
     """Extract all FILE[filename] macros from the markdown portion of a codeval spec file."""
     file_macros = []
@@ -119,7 +141,13 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
     if has_github:
         debug(f'Found GITHUB entry for course, will use online_text_entry submission type')
 
-    canvas_folder = get_codeval_folder(course)
+    codeval_folder = get_codeval_folder(course)
+    assign_name_early = extract_assignment_name(specname)
+    if get_config().dry_run:
+        canvas_folder = codeval_folder
+        debug(f'Would use subfolder: CodEval/{assign_name_early}')
+    else:
+        canvas_folder = get_assignment_subfolder(course, codeval_folder, assign_name_early)
     if extra:
         upload_assignment_files(canvas_folder, extra)
     # find zipfiles in spec
