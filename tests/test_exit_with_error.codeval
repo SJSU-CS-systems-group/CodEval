@@ -1,0 +1,5 @@
+# Test X + E combination: program writes to stderr and exits with a non-zero code.
+
+T python3 sample_error_exit.py
+X 3
+E something went wrong
