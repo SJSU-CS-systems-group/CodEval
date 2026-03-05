@@ -28,6 +28,7 @@ def get_testing_path(filename: str) -> str:
 test_args = ""
 cmps = []
 timeout_val = 10
+output_length_limit = 4096
 expected_exit_code = -1
 test_case_count = 0
 test_case_hint = ""
@@ -643,6 +644,19 @@ def timeout(timeout_sec):
     timeout_val = float(timeout_sec)
 
 
+def output_length(length):
+    """Specifies the maximum number of bytes of diff output to render. Defaults to 4096.
+
+    Arguments:
+        length: maximum output length in bytes
+
+    Returns:
+        None
+    """
+    global output_length_limit
+    output_length_limit = int(length)
+
+
 def exit_code(test_case_exit_code):
     """Specifies the expected exit code for a test case. Defaults to zero.
 
@@ -726,6 +740,7 @@ tag_func_map = {
     "EB": check_error_bare,
     "HINT": hint,
     "TO": timeout,
+    "OLEN": output_length,
     "X": exit_code,
     "SS": start_server,
 }
@@ -907,6 +922,72 @@ def parse_diff(diff_lines: list[str], testing_dir: str):
                     outfile.write(line)
 
 
+def _render_diff_output(raw_bytes: bytes) -> str:
+    """Render raw bytes for diff output, making unprintable characters visible.
+
+    Replaces the shell pipeline `cat -te | head -22` with pure Python.
+    """
+    result = []
+    i = 0
+    n = len(raw_bytes)
+
+    while i < n:
+        b = raw_bytes[i]
+
+        if b == 0x0A:  # newline
+            result.append("$\n")
+            i += 1
+        elif b == 0x20 or (0x21 <= b <= 0x7E):  # space or printable ASCII
+            result.append(chr(b))
+            i += 1
+        elif b <= 0x1F:  # control chars (except newline handled above)
+            result.append("^" + chr(b + 0x40))
+            i += 1
+        elif b == 0x7F:  # DEL
+            result.append("^?")
+            i += 1
+        elif b >= 0x80:
+            # Try to decode as UTF-8 multi-byte sequence
+            seq_len = 0
+            if (b & 0xE0) == 0xC0:
+                seq_len = 2
+            elif (b & 0xF0) == 0xE0:
+                seq_len = 3
+            elif (b & 0xF8) == 0xF0:
+                seq_len = 4
+
+            decoded_char = None
+            if seq_len >= 2 and i + seq_len <= n:
+                try:
+                    decoded_char = raw_bytes[i:i + seq_len].decode("utf-8")
+                except UnicodeDecodeError:
+                    pass
+
+            if decoded_char and len(decoded_char) == 1 and decoded_char.isprintable():
+                result.append(decoded_char)
+                i += seq_len
+            elif decoded_char and len(decoded_char) == 1:
+                # Valid UTF-8 but non-printable: render each byte as \xCC
+                for j in range(seq_len):
+                    result.append(f"\\x{raw_bytes[i + j]:02X}")
+                i += seq_len
+            else:
+                # Invalid UTF-8 byte
+                result.append(f"\\x{b:02X}")
+                i += 1
+        else:
+            result.append(chr(b))
+            i += 1
+
+    output = "".join(result)
+
+    # If output doesn't end with \n, append $ at the very end
+    if output and not output.endswith("\n"):
+        output += "$"
+
+    return output
+
+
 def _find_touched_files(pre_run_timestamp):
     """Find files touched (modified or accessed) since pre_run_timestamp.
 
@@ -960,24 +1041,22 @@ def check_test():
     # Difflog handling
     with open(get_testing_path("difflog"), "w") as outfile:
         diff_popen = subprocess.Popen(
-            f"diff -U1 -a ./{TESTING_DIR}/youroutput ./{TESTING_DIR}/expectedoutput | cat -te | head -22",
-            shell=True,
-            stdout=outfile,
-            stderr=outfile,
-            text=True,
+            ["diff", "-U1", "-a",
+             f"./{TESTING_DIR}/youroutput", f"./{TESTING_DIR}/expectedoutput"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        diff_popen.communicate()
+        raw_output, _ = diff_popen.communicate()
+        outfile.write(_render_diff_output(raw_output[:output_length_limit]))
 
     # Append to difflog second time around
     with open(get_testing_path("difflog"), "a") as outfile:
         diff_popen = subprocess.Popen(
-            f"diff -U1 -a ./{TESTING_DIR}/yourerror ./{TESTING_DIR}/expectederror | cat -te | head -22",
-            shell=True,
-            stdout=outfile,
-            stderr=outfile,
-            text=True,
+            ["diff", "-U1", "-a",
+             f"./{TESTING_DIR}/yourerror", f"./{TESTING_DIR}/expectederror"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        diff_popen.communicate()
+        raw_output, _ = diff_popen.communicate()
+        outfile.write(_render_diff_output(raw_output[:output_length_limit]))
 
     # Now read all the lines to accumulate both diffs
     with open(get_testing_path("difflog"), "r") as infile:

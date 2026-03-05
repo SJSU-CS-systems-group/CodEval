@@ -180,6 +180,37 @@ def delete_submission_comment(canvas, course_id, assignment_id, user_id, comment
     resp.raise_for_status()
 
 
+def _parse_substitutions_file(filepath):
+    """Parse a substitutions file where each line has the form /pattern/replacement/.
+
+    The first character of each line defines the delimiter. The delimiter must appear
+    exactly once in-between (separating pattern from replacement) and once at the end.
+    Returns a list of (pattern, replacement) tuples.
+    Raises click.ClickException on parse errors.
+    """
+    substitutions = []
+    with open(filepath, "r") as fd:
+        for lineno, line in enumerate(fd, start=1):
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            delim = line[0]
+            parts = line[1:].split(delim)
+            if len(parts) != 3 or parts[2] != "":
+                raise click.ClickException(
+                    f"{filepath}:{lineno}: invalid substitution line: {line}"
+                )
+            substitutions.append((parts[0], parts[1]))
+    return substitutions
+
+
+def _apply_substitutions(comment, substitutions):
+    """Apply a list of (pattern, replacement) substitutions to comment text."""
+    for pattern, replacement in substitutions:
+        comment = comment.replace(pattern, replacement)
+    return comment
+
+
 @click.command()
 @click.argument("submissions_dir", metavar="SUBMISSIONS_DIR")
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
@@ -214,8 +245,12 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                     write_html_file(dirpath)
                     file_id = upload_file_for_comment(canvas, course.id, assignment.id, student_id, f"{dirpath}/results.html")
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read()
-                        comment = comment.replace("\0", "\\0").strip()
+                        comment = fd.read(4096)
+                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
+                    subs_file = f"{dirpath}/SUBSTITUTIONS.txt"
+                    if os.path.isfile(subs_file):
+                        substitutions = _parse_substitutions_file(subs_file)
+                        comment = _apply_substitutions(comment, substitutions)
                     if delete:
                         all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
                         if all_comments:
@@ -226,7 +261,7 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                         f'{canvas_url}/api/v1/courses/{course.id}/assignments/{assignment.id}/submissions/{student_id}',
                         headers={'Authorization': f'Bearer {canvas_token}'},
                         data={
-                            'comment[text_comment]': f'{codeval_prefix.rstrip()}\n{comment}',
+                            'comment[text_comment]': f'{codeval_prefix.rstrip()}\n<pre>{comment}</pre>',
                             'comment[file_ids][]': file_id,
                         }
                     ).raise_for_status()
@@ -312,6 +347,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         if not move_to_next_submission:
             for zf_name in zip_files:
                 with ZipFile(os.path.join(codeval_dir, zf_name)) as zf:
+                    if "SUBSTITUTIONS.txt" in zf.namelist():
+                        with open(os.path.join(dirpath, "SUBSTITUTIONS.txt"), "wb") as out_f:
+                            out_f.write(zf.read("SUBSTITUTIONS.txt"))
                     for f in zf.infolist():
                         dest_dir = os.path.join(submission_dir, assignment_working_dir)
                         zf.extract(f, dest_dir)
