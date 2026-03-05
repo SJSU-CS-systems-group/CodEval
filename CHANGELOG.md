@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.25
+
+- Add export-tests command to extract test cases from codeval files into a zip archive
+  - Exports in.X, out.X, err.X files and a TESTS.md summary for each test case
+  - --include-hidden flag to include hidden test cases
+  - Reads IF/OF file contents from Z-tag zip archives
+- Updated submission file UI
+- Replace regex function detection with objdump/javap/ast for CF tag
+- Add PRINT tag for printing section labels
+- Track file timestamps and compare outputs for file-based test cases
+
 ## 0.0.24
 
 - Convert recent-comments to use Canvas GraphQL API instead of REST for faster performance
