@@ -1,7 +1,5 @@
 // CLI calculator - C++ implementation
-// Based on cli-calc assignment (Downloads/assignments/cli-calc/cli_calc.codeval),
-// adapted for C++ with a Makefile build.
-//
+
 // Usage: ./mycalc number [+|- number]...
 
 #include <iostream>
