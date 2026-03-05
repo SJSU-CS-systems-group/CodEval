@@ -1,6 +1,7 @@
 name: Run CodEval Tests
 
 on:
+  push:
   pull_request:
     branches: [main]
 
@@ -20,7 +21,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++
+          sudo apt-get install -y g++ make
 
       - name: Install Python dependencies
         run: |

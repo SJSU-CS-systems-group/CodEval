@@ -1,0 +1,10 @@
+# Test multiple I tags: each I line appends a newline-terminated line to stdin.
+# sample_echo.py echoes every stdin line back to stdout.
+
+T python3 sample_echo.py
+I first line
+I second line
+I third line
+O first line
+O second line
+O third line

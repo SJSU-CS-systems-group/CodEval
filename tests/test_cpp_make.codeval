@@ -1,0 +1,40 @@
+# C++ CLI calculator - builds with make
+
+C make
+
+CF strtol mycalc.cpp
+
+CMD echo "smoke tests"
+T ./mycalc
+X 1
+O USAGE: ./mycalc number [+|- number]...
+
+T ./mycalc 1
+X 0
+O 1
+
+CMD echo "basic tests"
+T ./mycalc 3+ 4
+X 2
+O expected an integer. got 3+
+
+T ./mycalc 3 / 4
+X 2
+O expected + or -. got /
+
+T ./mycalc 3 + 4 - 2 + -1
+X 0
+O 4
+
+CMD echo "advanced tests"
+T ./mycalc 3 + 4.4
+X 2
+O expected an integer. got 4.4
+
+T ./mycalc 3 + 4
+X 0
+O 7
+
+T ./mycalc 300 + 30 - 4 + 07
+X 0
+O 333

@@ -1,0 +1,9 @@
+# Test NCF tag on Python: verify pycalc.py does not use eval or exec,
+# then run a basic test to confirm the program still works correctly.
+
+NCF eval pycalc.py
+NCF exec pycalc.py
+
+T python3 pycalc.py 5 + 3
+X 0
+O 8

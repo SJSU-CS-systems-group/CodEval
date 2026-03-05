@@ -1,0 +1,26 @@
+# Additional edge cases for the mycalc C++ make build.
+# Exercises zero result, negative result, large numbers, and remaining error paths.
+
+C make
+
+CMD echo "edge case tests"
+
+T ./mycalc 0
+X 0
+O 0
+
+T ./mycalc 10 - 20
+X 0
+O -10
+
+T ./mycalc 1000000 + 2000000
+X 0
+O 3000000
+
+T ./mycalc 5 +
+X 2
+O expected an integer. got +
+
+T ./mycalc abc
+X 2
+O expected an integer. got abc
