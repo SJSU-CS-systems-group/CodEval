@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.26
+
+- Replace `cat -te | head -22` shell pipeline with pure Python `_render_diff_output()` for diff output rendering
+- Add SUBSTITUTIONS.txt support for comment text replacement before Canvas upload
+  - evaluate-submissions copies SUBSTITUTIONS.txt from zip files to submission directory
+  - upload-submission-comments applies literal string substitutions from SUBSTITUTIONS.txt
+  - File format: each line is `<delim>pattern<delim>replacement<delim>` (first char defines delimiter)
+- Add OLEN tag to override the default 4096-byte diff output length limit
+- Escape `<` as `&lt;` in comments and wrap in `<pre>` tags for Canvas upload
+
 ## 0.0.25
 
 - Add export-tests command to extract test cases from codeval files into a zip archive
