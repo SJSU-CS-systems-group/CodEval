@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.27
+
+- Upload assignment files to per-assignment subfolder under CodEval instead of the root CodEval folder
+
 ## 0.0.26
 
 - Replace `cat -te | head -22` shell pipeline with pure Python `_render_diff_output()` for diff output rendering
