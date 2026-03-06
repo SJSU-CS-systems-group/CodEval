@@ -62,7 +62,7 @@ def _has_codeval_comment_after_submission(submission_node, codeval_prefix):
     comments = submission_node.get("commentsConnection", {}).get("nodes", [])
     for comment in comments:
         text = comment.get("comment", "")
-        if not text.startswith(codeval_prefix):
+        if not text.startswith(codeval_prefix.rstrip()):
             continue
         created_at = comment.get("createdAt")
         if created_at and created_at > submitted_at:
