@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.28
+
+- Fix check-grading not recognizing codeval comments where the prefix trailing space was stripped during upload
+
 ## 0.0.27
 
 - Upload assignment files to per-assignment subfolder under CodEval instead of the root CodEval folder
