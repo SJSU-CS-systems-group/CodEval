@@ -1,5 +1,6 @@
 import os
 import re
+import zipfile
 
 import markdown
 
@@ -41,19 +42,28 @@ def ansi_to_html(text):
     return ''.join(result)
 
 
-def _read_file_content(filename, spec_dir):
-    """Read the content of a file referenced by an OF or IF tag."""
-    if not spec_dir:
-        return None
-    filepath = os.path.join(spec_dir, filename)
-    try:
-        with open(filepath, 'r') as f:
-            return f.read()
-    except (FileNotFoundError, OSError):
-        return None
+def _read_file_content(filename, spec_dir, zip_archives=None):
+    """Read the content of a file referenced by an IF/OF/EF tag.
+
+    Searches local spec_dir first, then zip archives. Returns content as string.
+    """
+    if spec_dir:
+        filepath = os.path.join(spec_dir, filename)
+        try:
+            with open(filepath, 'r') as f:
+                return f.read()
+        except (FileNotFoundError, OSError):
+            pass
+    if zip_archives:
+        for zf in zip_archives:
+            try:
+                return zf.read(filename).decode('utf-8')
+            except KeyError:
+                continue
+    return None
 
 
-def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
+def sampleTestCases(listOfTC, numOfTC, spec_dir=None, zip_archives=None):
     counter = 0
     samples = "<pre><code>"
     for line in listOfTC:
@@ -64,7 +74,7 @@ def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
             samples = samples + "\n" + "Command to RUN: " + line[2:]
         elif line.startswith('IF '):
             filename = line[3:].strip()
-            content = _read_file_content(filename, spec_dir)
+            content = _read_file_content(filename, spec_dir, zip_archives)
             if content is not None:
                 samples = samples + "<span style=\"color:green\">" + ansi_to_html(content) + "</span>"
             else:
@@ -75,7 +85,7 @@ def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
             samples = samples + "<span style=\"color:green\">" + line[2:] + "</span>"
         elif line.startswith('OF '):
             filename = line[3:].strip()
-            content = _read_file_content(filename, spec_dir)
+            content = _read_file_content(filename, spec_dir, zip_archives)
             if content is not None:
                 samples = samples + "<span style=\"color:blue\">" + ansi_to_html(content) + "</span>"
             else:
@@ -86,6 +96,13 @@ def sampleTestCases(listOfTC, numOfTC, spec_dir=None):
             samples = samples + "<span style=\"color:blue\">" + line[2:] + "</span>"
         elif line.startswith('X '):
             samples = samples + "Expected Exit Code: " + line[2:]
+        elif line.startswith('EF '):
+            filename = line[3:].strip()
+            content = _read_file_content(filename, spec_dir, zip_archives)
+            if content is not None:
+                samples = samples + "<span style=\"color:Tomato\">" + ansi_to_html(content) + "</span>"
+            else:
+                samples = samples + "<span style=\"color:Tomato\">Expected error from file: " + filename + "\n</span>"
         elif line.startswith('EB '):
             samples = samples + "<span style=\"color:Tomato\">" + line[3:] + "</span>"
         elif line.startswith('E '):
@@ -104,24 +121,41 @@ def mdToHtml(file_name, files_resolver=None):
         compile_command = ""
         past_crt_hw = False
         numOfSampleTC = 1
+        zip_paths = []
         for line in f:
             if 'CRT_HW START' in line:
                 assignment_name = line[13:].strip()
             elif 'CRT_HW END' in line:
                 assignment = text
                 past_crt_hw = True
-            elif line.startswith(('T ', 'I ', 'IB ', 'IF ', 'O ', 'OB ', 'OF ', 'X ', 'E ', 'EB ')):
+            elif line.startswith(('T ', 'I ', 'IB ', 'IF ', 'O ', 'OB ', 'OF ',
+                                  'EF ', 'X ', 'E ', 'EB ')):
                 examples.append(line)
             elif line.startswith('HT '):
                 break
             else:
                 if past_crt_hw and line.startswith('C '):
                     compile_command = line[2:].strip()
+                if past_crt_hw and line.startswith('Z '):
+                    zip_paths.append(line[2:].strip())
                 if 'EXMPLS ' in line:
                     numOfSampleTC = int(line[7:])
                 text = text + line
         spec_dir = os.path.dirname(os.path.abspath(file_name))
-        samples = sampleTestCases(examples, numOfSampleTC, spec_dir)
+
+        # Open zip archives for IF/OF/EF file resolution
+        zip_archives = []
+        try:
+            for zp in zip_paths:
+                full_path = os.path.join(spec_dir, zp)
+                if os.path.exists(full_path):
+                    zip_archives.append(zipfile.ZipFile(full_path, 'r'))
+            samples = sampleTestCases(examples, numOfSampleTC, spec_dir,
+                                      zip_archives)
+        finally:
+            for zf in zip_archives:
+                zf.close()
+
         assignment = re.sub('EXMPLS [0-9]+', samples, assignment)
         if compile_command:
             assignment = assignment.replace('COMPILE', compile_command)

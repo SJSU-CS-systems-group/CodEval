@@ -76,6 +76,7 @@ assignment-codeval download-submissions --help
 
 - Files with `.codeval` extension containing tags to specify how to build submissions, populate support files, and run tests
 - The beginning of the file usually has markdown (between `CRT_HW START` and `CRT_HW END`) to describe the assignment for Canvas
+- Codeval file lookup: first matches by filename (case-insensitive), then falls back to checking the `CRT_HW START` title inside each `.codeval` file
 - Full tag reference is in README.md, key tags:
   - `C` - Compile command
   - `T/HT` - Test case (HT = hidden test)

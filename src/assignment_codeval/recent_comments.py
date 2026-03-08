@@ -12,6 +12,7 @@ from assignment_codeval.canvas_utils import (
     get_canvas_credentials, graphql_request, fetch_all_submissions,
 )
 from assignment_codeval.commons import despace
+from assignment_codeval.submissions import find_codeval_file
 
 COURSE_ASSIGNMENTS_QUERY = """
 query CourseAssignmentsQuery($courseId: ID!) {
@@ -164,8 +165,7 @@ def recent_comments(course_name, active, time_period, codeval_prefix, verbose, s
             # Check if this assignment has a codeval file
             has_codeval = True
             if codeval_dir:
-                codeval_file = os.path.join(codeval_dir, f"{despace(assignment_name)}.codeval")
-                has_codeval = os.path.exists(codeval_file)
+                has_codeval = find_codeval_file(codeval_dir, despace(assignment_name)) is not None
                 if not has_codeval:
                     if verbose:
                         click.echo(f"    (no codeval file)", err=True)

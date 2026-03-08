@@ -1138,8 +1138,6 @@ def check_test():
                                 if len(lines) > 22:
                                     print(f"    ... ({len(lines) - 22} more lines)")
 
-        cleanup()
-
         # Exit program after failed test case
         sys.exit(2)
 
@@ -1214,9 +1212,6 @@ def run_evaluation(codeval_file):
         parse_tags(testcases)
 
     check_test()
-
-    # cleanup
-    cleanup()
 
     end_time_seconds = time.time()
     print(f"took {end_time_seconds - start_time_seconds} seconds")

@@ -37,6 +37,9 @@ Use a part of the course name that can uniquely identify the course on Canvas.
   - Default: --no-copytmpdir
   - Copy temporary directory content to current directory for debugging
 
+### Codeval File Matching
+When looking up the codeval file for an assignment, CodEval first tries to match by filename (case-insensitive). If no filename match is found, it falls back to checking the `CRT_HW START` title inside each `.codeval` file in the codeval directory. This allows the codeval filename to differ from the assignment name on Canvas as long as the `CRT_HW START` title matches.
+
 ### Specification Tags
 Tags used in a spec file (\<course name>.codeval)
 
