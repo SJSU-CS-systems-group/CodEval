@@ -605,7 +605,8 @@ def get_submissions_by_id(assignment):
 
 @click.command()
 @click.argument("course_name", metavar="COURSE", required=False)
-def list_codeval_assignments(course_name):
+@click.option("--path", is_flag=True, help="Show the path to the codeval file")
+def list_codeval_assignments(course_name, path):
     """
     List all assignments that have corresponding codeval files.
 
@@ -646,10 +647,18 @@ def list_codeval_assignments(course_name):
             assignment_key = despace(assignment.name).lower()
             if assignment_key in codeval_files:
                 matched_codeval_keys.add(assignment_key)
-                info(f"{course.name}: {assignment.name}")
+                codeval_path = os.path.join(codeval_dir, f"{codeval_files[assignment_key]}.codeval")
+                if path:
+                    info(f"{course.name}: {assignment.name} [{codeval_path}]")
+                else:
+                    info(f"{course.name}: {assignment.name}")
             elif assignment_key in codeval_titles:
                 matched_codeval_keys.add(codeval_titles[assignment_key].lower())
-                info(f"{course.name}: {assignment.name}")
+                codeval_path = os.path.join(codeval_dir, f"{codeval_titles[assignment_key]}.codeval")
+                if path:
+                    info(f"{course.name}: {assignment.name} [{codeval_path}]")
+                else:
+                    info(f"{course.name}: {assignment.name}")
 
     # Report codeval files that don't match any assignment
     unmatched_keys = set(codeval_files.keys()) - matched_codeval_keys
