@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.29
+
+- Codeval file lookup now falls back to matching by CRT_HW START title when filename doesn't match
+- Add zip archive support for IF/OF/EF file resolution in markdown-to-HTML conversion
+- Add EF tag support in sample test case rendering
+- Remove redundant cleanup() calls in evaluate.py
+
 ## 0.0.28
 
 - Fix check-grading not recognizing codeval comments where the prefix trailing space was stripped during upload
