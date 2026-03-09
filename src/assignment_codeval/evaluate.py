@@ -853,7 +853,7 @@ def parse_tags(tags: list[str]):
                 # Check if this looks like a bare shell command missing a CMD prefix
                 first_word = tag_line.split()[0] if tag_line.split() else ""
                 if first_word.lower() in _BARE_SHELL_COMMANDS:
-                    print(f"Warning on line {line_num}: bare shell command without CMD prefix")
+                    print(f"Warning on line {line_num}: bare shell command without CMD prefix, shell commands will be ignored")
                     print(f"  {line_num}: {tag_line.rstrip()}")
                     print(f"  Did you mean: CMD {tag_line.rstrip()}")
             continue
