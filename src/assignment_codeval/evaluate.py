@@ -43,6 +43,15 @@ compilelog = []
 # Specification Tags to Function Mapping
 ###########################################################
 
+# Shell commands that likely indicate a missing CMD prefix when found untagged
+_BARE_SHELL_COMMANDS = {
+    'echo', 'rm', 'cp', 'mv', 'mkdir', 'rmdir', 'cat', 'ls', 'grep',
+    'sed', 'awk', 'find', 'chmod', 'chown', 'touch', 'ln', 'diff',
+    'sort', 'head', 'tail', 'cut', 'tr', 'wc', 'bash', 'sh', 'python',
+    'python3', 'make', 'export', 'source', 'kill', 'pkill', 'sleep',
+    'printf', 'read', 'unzip', 'tar', 'curl', 'wget',
+}
+
 
 def compile_code(compile_command):
     """Specifies the command to compile the submission code
@@ -840,6 +849,13 @@ def parse_tags(tags: list[str]):
                     print(f"  {line_num}: {tag_line.rstrip()}")
                     print(f"  Valid tags are: {', '.join(sorted(valid_tags))}")
                     sys.exit(1)
+            else:
+                # Check if this looks like a bare shell command missing a CMD prefix
+                first_word = tag_line.split()[0] if tag_line.split() else ""
+                if first_word.lower() in _BARE_SHELL_COMMANDS:
+                    print(f"Warning on line {line_num}: bare shell command without CMD prefix, shell commands will be ignored")
+                    print(f"  {line_num}: {tag_line.rstrip()}")
+                    print(f"  Did you mean: CMD {tag_line.rstrip()}")
             continue
 
         tag = tag_match.group(1)
