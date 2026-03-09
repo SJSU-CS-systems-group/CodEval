@@ -1,0 +1,43 @@
+# Python CLI calculator
+
+CF int pycalc.py
+CF print pycalc.py
+
+CMD echo "smoke tests"
+T python3 pycalc.py
+X 1
+O USAGE: pycalc.py number [+|- number]...
+
+T python3 pycalc.py 42
+X 0
+O 42
+
+CMD echo "basic tests"
+T python3 pycalc.py 3 + 4
+X 0
+O 7
+
+T python3 pycalc.py 10 - 3
+X 0
+O 7
+
+T python3 pycalc.py 3.5 + 4
+X 2
+O expected an integer. got 3.5
+
+T python3 pycalc.py 3 / 4
+X 2
+O expected + or -. got /
+
+CMD echo "advanced tests"
+T python3 pycalc.py 3 + 4 - 2 + -1
+X 0
+O 4
+
+T python3 pycalc.py 100 + 200 - 50
+X 0
+O 250
+
+T python3 pycalc.py 0 - 100
+X 0
+O -100

@@ -1,0 +1,4 @@
+# Test EB tag: expected stderr output without a trailing newline
+
+T python3 sample_stderr_bare.py
+EB error without newline
