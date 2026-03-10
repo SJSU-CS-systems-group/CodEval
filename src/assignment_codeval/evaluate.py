@@ -38,6 +38,7 @@ num_failed = 0
 is_hidden_testcase = False
 is_verbose = False
 compilelog = []
+last_compile_command = ""
 
 ###########################################################
 # Specification Tags to Function Mapping
@@ -62,6 +63,9 @@ def compile_code(compile_command):
     Returns:
         None
     """
+    global last_compile_command
+    last_compile_command = compile_command
+
     if test_case_count != 0:
         check_test()
 
@@ -119,6 +123,44 @@ def _find_compiled_artifact(source_file):
         if os.path.exists(candidate):
             return candidate
     return None
+
+
+def _extract_executable_from_compile(compile_command):
+    """Extract the output executable name from a compile command (looks for -o <name>).
+
+    Returns the executable name, or None if not found.
+    """
+    parts = compile_command.split()
+    for i, part in enumerate(parts):
+        if part == '-o' and i + 1 < len(parts):
+            return parts[i + 1]
+    return None
+
+
+def _extract_source_files_from_compile(compile_command):
+    """Extract source file arguments from a compile command.
+
+    Recognises common source file extensions (.c, .cpp, .cc, .cxx, .java, .py)
+    and skips option arguments that consume the following token as a value
+    (e.g. -o, -I, -L, -l, -include, -isystem, -MF, -MT, -MQ).
+
+    Returns a list of source file paths found in the command.
+    """
+    source_exts = ('.c', '.cpp', '.cc', '.cxx', '.java', '.py')
+    value_flags = {'-o', '-I', '-L', '-l', '-include', '-isystem', '-MF', '-MT', '-MQ'}
+    parts = compile_command.split()
+    files = []
+    skip_next = False
+    for part in parts:
+        if skip_next:
+            skip_next = False
+            continue
+        if part in value_flags:
+            skip_next = True
+            continue
+        if not part.startswith('-') and any(part.endswith(ext) for ext in source_exts):
+            files.append(part)
+    return files
 
 
 def _function_used_in_c_cpp(function_name, files):
@@ -218,14 +260,20 @@ def _function_used_regex(function_name, files):
     return result.returncode == 0
 
 
-def _is_function_used(function_name, files):
+def _is_function_used(function_name, files, allow_regex_fallback=True):
     """Detect whether function_name is used in the given files.
 
     Dispatches to the appropriate tool based on file language:
-      - C/C++:  objdump on compiled artifact (falls back to regex if none found)
-      - Java:   javap on .class file (falls back to regex if none found)
+      - C/C++:  objdump on compiled artifact (falls back to regex if none found
+                and allow_regex_fallback is True)
+      - Java:   javap on .class file (falls back to regex if none found
+                and allow_regex_fallback is True)
       - Python: ast module on source
-      - Other:  regex on source
+      - Other:  regex on source (only when allow_regex_fallback is True)
+
+    When allow_regex_fallback is False (used when no filename was given in the
+    CF tag), the function relies solely on compiled-artifact inspection and
+    returns False rather than falling back to regex.
     """
     lang = _detect_language(files)
     if lang == 'python':
@@ -233,36 +281,56 @@ def _is_function_used(function_name, files):
     if lang == 'java':
         result = _function_used_in_java(function_name, files)
         if result is None:
-            return _function_used_regex(function_name, files)
+            return _function_used_regex(function_name, files) if allow_regex_fallback else False
         return result
     if lang == 'c_cpp':
         result = _function_used_in_c_cpp(function_name, files)
         if result is None:
-            return _function_used_regex(function_name, files)
+            return _function_used_regex(function_name, files) if allow_regex_fallback else False
         return result
-    return _function_used_regex(function_name, files)
+    if allow_regex_fallback:
+        return _function_used_regex(function_name, files)
+    return False
 
 
 def check_function(args):
-    """Will be followed by a function name and a list of files to check to ensure that the function
-    is used by one of those files.
+    """Will be followed by a function name and an optional list of files to check to ensure that
+    the function is used by one of those files.
+
+    When no filename is provided (preferred usage), the source files are derived from the most
+    recent C (compile) tag.  The check then relies solely on compiled-artifact inspection
+    (objdump for C/C++, javap for Java, ast for Python) with no regex fallback.
+
+    When a filename is provided (legacy usage), the same compiled-artifact inspection is used
+    first, but a regex scan of the source file is available as a fallback when no compiled
+    artifact can be found.
 
     Arguments:
         function_name: the function name to check files for usage of
-        *files: the files to check for the function name
+        *files: (optional) the files to check for the function name.  If omitted, source
+                files are inferred from the most recent C tag.
 
     Returns:
         None
     """
     check_test()
-    args = args.split()
-    function_name = args[0]
-    files = args[1:]
+    args_list = args.split()
+    function_name = args_list[0]
+    files = args_list[1:]
 
-    if _is_function_used(function_name, files):
-        print(f"Used {function_name} PASSED")
+    if not files:
+        # No filename provided — derive source files from the compile command and
+        # disable the regex fallback (compiled-artifact check only).
+        files = _extract_source_files_from_compile(last_compile_command)
+        if _is_function_used(function_name, files, allow_regex_fallback=False):
+            print(f"Used {function_name} PASSED")
+        else:
+            print(f"Not using {function_name} FAILED")
     else:
-        print(f"Not using {function_name} FAILED")
+        if _is_function_used(function_name, files):
+            print(f"Used {function_name} PASSED")
+        else:
+            print(f"Not using {function_name} FAILED")
 
 def check_object(args):
     """Will be followed by an object and a list of files to ensure that the function is
@@ -361,22 +429,38 @@ def check_container(args):
     
 
 def check_not_function(args):
-    """Will be followed by a function name and a list of files to check to ensure that the function
-    is not used by any of those files.
+    """Will be followed by a function name and an optional list of files to check to ensure that
+    the function is not used by any of those files.
+
+    When no filename is provided (preferred usage), the source files are derived from the most
+    recent C (compile) tag.  The check relies solely on compiled-artifact inspection with no
+    regex fallback.
+
+    When a filename is provided (legacy usage), compiled-artifact inspection is used first with
+    a regex fallback when no compiled artifact is found.
 
     Arguments:
         function_name: the function name to check files for usage of
-        *files: the files to check for the function name
+        *files: (optional) the files to check for the function name.  If omitted, source
+                files are inferred from the most recent C tag.
 
     Returns:
         None
     """
     check_test()
-    args = args.split()
-    function_name = args[0]
-    files = args[1:]
+    args_list = args.split()
+    function_name = args_list[0]
+    files = args_list[1:]
 
-    if _is_function_used(function_name, files):
+    if not files:
+        # No filename provided — derive source files from the compile command and
+        # disable the regex fallback (compiled-artifact check only).
+        files = _extract_source_files_from_compile(last_compile_command)
+        used = _is_function_used(function_name, files, allow_regex_fallback=False)
+    else:
+        used = _is_function_used(function_name, files)
+
+    if used:
         print(f"Used {function_name} FAILED")
     else:
         print(f"Not using {function_name} PASSED")

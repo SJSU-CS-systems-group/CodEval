@@ -1,0 +1,14 @@
+# Test CF/NCF tags without an explicit filename for Java (preferred usage).
+# Source file is inferred from the C tag; detection uses javap on the .class file.
+# REQUIRES: java
+
+C javac SampleCfFunctions.java
+
+# greet() is defined and called — should PASS
+CF greet
+
+# forbidden_func is never defined or called — should PASS
+NCF forbidden_func
+
+T java SampleCfFunctions
+O Hello World

@@ -137,6 +137,51 @@ class TestJavaFunctionDetection:
                 )
             assert _function_used_in_java("greet", [src]) is None
 
+    def test_cf_no_filename_detects_used_method(self, capsys):
+        import assignment_codeval.evaluate as ev
+        old_cmd = ev.last_compile_command
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(self.tmpdir)
+            ev.last_compile_command = f"javac SampleCfDetect.java"
+            ev.test_case_count = 0
+            ev.check_function("greet")
+        finally:
+            ev.last_compile_command = old_cmd
+            os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "PASSED" in captured.out
+
+    def test_cf_no_filename_fails_for_unused_method(self, capsys):
+        import assignment_codeval.evaluate as ev
+        old_cmd = ev.last_compile_command
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(self.tmpdir)
+            ev.last_compile_command = f"javac SampleCfDetect.java"
+            ev.test_case_count = 0
+            ev.check_function("forbidden_func")
+        finally:
+            ev.last_compile_command = old_cmd
+            os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "FAILED" in captured.out
+
+    def test_ncf_no_filename_passes_for_absent_method(self, capsys):
+        import assignment_codeval.evaluate as ev
+        old_cmd = ev.last_compile_command
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(self.tmpdir)
+            ev.last_compile_command = f"javac SampleCfDetect.java"
+            ev.test_case_count = 0
+            ev.check_not_function("forbidden_func")
+        finally:
+            ev.last_compile_command = old_cmd
+            os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "PASSED" in captured.out
+
 
 # ---------------------------------------------------------------------------
 # Python — ast path
@@ -193,3 +238,174 @@ class TestPythonFunctionDetection:
             assert _function_used_in_python("eval", [fname]) is False
         finally:
             os.unlink(fname)
+
+
+# ---------------------------------------------------------------------------
+# Compile-command helpers
+# ---------------------------------------------------------------------------
+
+class TestExtractExecutableFromCompile:
+    """_extract_executable_from_compile returns the -o argument."""
+
+    def test_simple_c_compile(self):
+        from assignment_codeval.evaluate import _extract_executable_from_compile
+        assert _extract_executable_from_compile("cc -o mycalc --std=gnu11 mycalc.c") == "mycalc"
+
+    def test_cpp_compile(self):
+        from assignment_codeval.evaluate import _extract_executable_from_compile
+        assert _extract_executable_from_compile("g++ -o sample_cf_functions sample_cf_functions.cpp") == "sample_cf_functions"
+
+    def test_no_output_flag(self):
+        from assignment_codeval.evaluate import _extract_executable_from_compile
+        assert _extract_executable_from_compile("cc mycalc.c") is None
+
+    def test_empty_command(self):
+        from assignment_codeval.evaluate import _extract_executable_from_compile
+        assert _extract_executable_from_compile("") is None
+
+
+class TestExtractSourceFilesFromCompile:
+    """_extract_source_files_from_compile returns source file arguments."""
+
+    def test_single_c_file(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        assert _extract_source_files_from_compile("cc -o mycalc --std=gnu11 mycalc.c") == ["mycalc.c"]
+
+    def test_cpp_file(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        assert _extract_source_files_from_compile("g++ -o out sample.cpp") == ["sample.cpp"]
+
+    def test_multiple_source_files(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        result = _extract_source_files_from_compile("cc -o prog main.c util.c helper.c")
+        assert result == ["main.c", "util.c", "helper.c"]
+
+    def test_python_file(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        assert _extract_source_files_from_compile("python3 myscript.py") == ["myscript.py"]
+
+    def test_java_file(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        assert _extract_source_files_from_compile("javac MyClass.java") == ["MyClass.java"]
+
+    def test_skips_output_flag_value(self):
+        """The value after -o should not be treated as a source file."""
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        result = _extract_source_files_from_compile("cc -o mycalc.exe mycalc.c")
+        assert "mycalc.exe" not in result
+        assert "mycalc.c" in result
+
+    def test_empty_command(self):
+        from assignment_codeval.evaluate import _extract_source_files_from_compile
+        assert _extract_source_files_from_compile("") == []
+
+
+# ---------------------------------------------------------------------------
+# CF / NCF no-filename path (check_function / check_not_function)
+# ---------------------------------------------------------------------------
+
+class TestCheckFunctionNoFilename:
+    """check_function and check_not_function infer source files from last_compile_command."""
+
+    @pytest.mark.skipif(not HAS_GPP_OBJDUMP, reason="g++ or objdump not available")
+    def test_cf_no_filename_detects_used_function(self, capsys):
+        import assignment_codeval.evaluate as ev
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "sample.cpp")
+            exe = os.path.join(tmpdir, "sample")
+            with open(src, "w") as f:
+                f.write(CPP_SOURCE)
+            subprocess.run(["g++", "-o", exe, src], check=True, capture_output=True)
+            old_cmd = ev.last_compile_command
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                ev.last_compile_command = f"g++ -o sample sample.cpp"
+                ev.test_case_count = 0
+                ev.check_function("greet")
+            finally:
+                ev.last_compile_command = old_cmd
+                os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "PASSED" in captured.out
+
+    @pytest.mark.skipif(not HAS_GPP_OBJDUMP, reason="g++ or objdump not available")
+    def test_cf_no_filename_fails_for_unused_function(self, capsys):
+        import assignment_codeval.evaluate as ev
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "sample.cpp")
+            exe = os.path.join(tmpdir, "sample")
+            with open(src, "w") as f:
+                f.write(CPP_SOURCE)
+            subprocess.run(["g++", "-o", exe, src], check=True, capture_output=True)
+            old_cmd = ev.last_compile_command
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                ev.last_compile_command = f"g++ -o sample sample.cpp"
+                ev.test_case_count = 0
+                ev.check_function("forbidden_func")
+            finally:
+                ev.last_compile_command = old_cmd
+                os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "FAILED" in captured.out
+
+    def test_cf_no_filename_python_detects_used_function(self, capsys):
+        """Python uses ast — no compiled artifact needed; no-filename path works."""
+        import assignment_codeval.evaluate as ev
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "myscript.py")
+            with open(src, "w") as f:
+                f.write("print('hello')\nlen([1, 2])\n")
+            old_cmd = ev.last_compile_command
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                ev.last_compile_command = "python3 -m py_compile myscript.py"
+                ev.test_case_count = 0
+                ev.check_function("print")
+            finally:
+                ev.last_compile_command = old_cmd
+                os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "PASSED" in captured.out
+
+    def test_cf_no_filename_python_fails_for_unused_function(self, capsys):
+        import assignment_codeval.evaluate as ev
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "myscript.py")
+            with open(src, "w") as f:
+                f.write("print('hello')\n")
+            old_cmd = ev.last_compile_command
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                ev.last_compile_command = "python3 -m py_compile myscript.py"
+                ev.test_case_count = 0
+                ev.check_function("eval")
+            finally:
+                ev.last_compile_command = old_cmd
+                os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "FAILED" in captured.out
+
+    def test_ncf_no_filename_python(self, capsys):
+        """NCF without filename works for Python via the ast path."""
+        import assignment_codeval.evaluate as ev
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "myscript.py")
+            with open(src, "w") as f:
+                f.write("print('hello')\n")
+            old_cmd = ev.last_compile_command
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                ev.last_compile_command = "python3 -m py_compile myscript.py"
+                ev.test_case_count = 0
+                ev.check_not_function("eval")
+            finally:
+                ev.last_compile_command = old_cmd
+                os.chdir(old_cwd)
+        captured = capsys.readouterr()
+        assert "PASSED" in captured.out

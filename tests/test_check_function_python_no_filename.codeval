@@ -1,0 +1,23 @@
+# Test CF/NCF tags without an explicit filename for Python (preferred usage).
+# python3 -m py_compile acts as the "compile" step so _extract_source_files_from_compile
+# can find the source file; detection uses the ast module.
+
+C python3 -m py_compile sample_with_functions.py
+
+# print() is used — should PASS
+CF print
+
+# len() is used — should PASS
+CF len
+
+# eval() is NOT used — should PASS
+NCF eval
+
+T python3 sample_with_functions.py
+O Hello World
+O 3
+O 0
+O 1
+O 2
+O 3
+O 4

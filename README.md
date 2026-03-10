@@ -49,7 +49,8 @@ Tags used in a spec file (\<course name>.codeval)
 | CTO | Compile Timeout | Timeout in seconds for the compile command to run |
 | RUN | Run Script | Specifies the script to use to evaluate the specification file. Defaults to evaluate.sh. |
 | Z | Download Zip | Will be followed by zip files to download from Canvas to use when running the test cases. |
-| CF | Check Function | Will be followed by a function name and a list of files to check to ensure that the function is used by one of those files. |
+| CF | Check Function | `CF <function_name> [filename]` — checks that the function is used. The filename is **optional** and omitting it (e.g. `CF strtol`) is the preferred usage; source files are inferred from the most recent `C` tag and the check uses compiled-artifact inspection only (objdump/javap/ast). Providing a filename (e.g. `CF strtol mycalc.c`) is supported for backwards compatibility and additionally enables a regex fallback when no compiled artifact is found. |
+| NCF | Check Not Function | `NCF <function_name> [filename]` — checks that the function is **not** used. The filename is **optional** (same behaviour as CF). |
 | CC | Check Container | Will be followed by a function name and a list of files to check to ensure that a container is used by one of those files. Primarily supports C++ containers such as std::vector |
 | CO | Check Object | Will be followed by a function name and a list of files to check to ensure that an object is used by one of those files. Primarily support C++ stream operations |
 | PRINT | Print Label | Prints a label/message to stdout. Cleaner alternative to `CMD echo "..."` for section labels. |

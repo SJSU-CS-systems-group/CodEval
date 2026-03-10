@@ -1,0 +1,13 @@
+# Test CF/NCF tags without an explicit filename (preferred usage).
+# Source files are inferred from the C tag; detection uses compiled artifacts only.
+
+C g++ -o sample_cf_functions sample_cf_functions.cpp
+
+# greet() is defined and called — should PASS
+CF greet
+
+# forbidden_func is never defined or called — should PASS
+NCF forbidden_func
+
+T ./sample_cf_functions
+O Hello World
