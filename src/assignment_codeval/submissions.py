@@ -355,8 +355,11 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
                 if line.startswith("CD"):
                     has_cd_tag = True
+                    cd_dir = line.split()[1].strip()
+                    if cd_dir == "GITHUB_DIRECTORY":
+                        cd_dir = assignment_name
                     assignment_working_dir = os.path.normpath(
-                        os.path.join(assignment_working_dir, line.split()[1].strip()))
+                        os.path.join(assignment_working_dir, cd_dir))
                     if not os.path.isdir(os.path.join(submission_dir, assignment_working_dir)):
                         out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
                         move_to_next_submission = True
