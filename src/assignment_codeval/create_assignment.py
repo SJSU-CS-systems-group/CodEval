@@ -38,12 +38,14 @@ def get_assignment_subfolder(course, codeval_folder, assignment_name):
 
 
 def extract_assignment_name(specname):
-    """Extract the assignment name from the CRT_HW START line of a codeval spec file."""
+    """Extract the assignment name from the ASSIGNMENT START (or CRT_HW START) line of a codeval spec file."""
     with open(specname, 'r') as f:
         for line in f:
+            if 'ASSIGNMENT START' in line:
+                return line[len('ASSIGNMENT START'):].strip()
             if 'CRT_HW START' in line:
-                return line[13:].strip()
-    error(f"could not find CRT_HW START in {specname}")
+                return line[len('CRT_HW START'):].strip()
+    error(f"could not find ASSIGNMENT START in {specname}")
     exit(2)
 
 
@@ -53,9 +55,9 @@ def extract_file_macros(specname):
     in_assignment = False
     with open(specname, 'r') as f:
         for line in f:
-            if 'CRT_HW START' in line:
+            if 'ASSIGNMENT START' in line or 'CRT_HW START' in line:
                 in_assignment = True
-            elif 'CRT_HW END' in line:
+            elif 'ASSIGNMENT END' in line or 'CRT_HW END' in line:
                 in_assignment = False
             elif in_assignment:
                 # Find all FILE[filename] patterns in this line

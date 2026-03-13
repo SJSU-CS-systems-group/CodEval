@@ -43,7 +43,7 @@ def parse_codeval_tests(codeval_file):
     in_crt_hw = False
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith("CRT_HW"):
+        if stripped.startswith("CRT_HW") or stripped.startswith("ASSIGNMENT START") or stripped.startswith("ASSIGNMENT END"):
             in_crt_hw = not in_crt_hw
             continue
         if in_crt_hw:
@@ -84,7 +84,7 @@ def _parse_codeval_lines(lines, zip_archives):
         if not stripped or stripped.startswith("#"):
             continue
 
-        if stripped.startswith("CRT_HW"):
+        if stripped.startswith("CRT_HW") or stripped.startswith("ASSIGNMENT START") or stripped.startswith("ASSIGNMENT END"):
             in_crt_hw_block = not in_crt_hw_block
             continue
 

@@ -18,15 +18,15 @@ from assignment_codeval.commons import debug, error, info, warn, despace
 
 
 def _extract_codeval_title(filepath):
-    """Extract the assignment title from the CRT_HW START line of a codeval file.
-    Returns None if no CRT_HW START line is found."""
+    """Extract the assignment title from the ASSIGNMENT START (or CRT_HW START) line of a codeval file.
+    Returns None if no such line is found."""
     try:
         with open(filepath, 'r') as f:
             for line in f:
-                if 'CRT_HW START' in line:
-                    idx = line.index('CRT_HW START') + len('CRT_HW START')
-                    title = line[idx:].strip()
-                    return title if title else None
+                for keyword in ('ASSIGNMENT START', 'CRT_HW START'):
+                    if keyword in line:
+                        title = line[line.index(keyword) + len(keyword):].strip()
+                        return title if title else None
     except (OSError, UnicodeDecodeError):
         pass
     return None
