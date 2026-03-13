@@ -1,0 +1,16 @@
+# Test that the TEMP tag deletes a file both before and after the test runs.
+#
+# Test 1: creates the file.
+# Test 2: registers TEMP, verifies file is gone BEFORE the test runs,
+#          then creates it again inside the test.
+# Test 3: verifies the file is gone AFTER test 2 completed (post-cleanup).
+
+T touch /tmp/codeval_temp_test.txt
+X 0
+
+TEMP /tmp/codeval_temp_test.txt
+T test ! -f /tmp/codeval_temp_test.txt && touch /tmp/codeval_temp_test.txt && echo deleted_before
+O deleted_before
+
+T test ! -f /tmp/codeval_temp_test.txt && echo deleted_after || echo still_exists
+O deleted_after

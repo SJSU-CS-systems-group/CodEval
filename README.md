@@ -63,6 +63,7 @@ Tags used in a spec file (\<course name>.codeval)
 | TO | Timeout | Specifies the time limit in seconds for a test case to run. Defaults to 20 seconds. |
 | X | Exit Code | Specifies the expected exit code for a test case. Defaults to zero. |
 | SS | Start Server | Command containing timeout (wait until server starts), kill timeout (wait to kill the server), and the command to start a server |
+| TEMP | Temp File | Registers a file to be deleted before the next T, HT, or TCMD test runs (clean state) and again after it completes (cleanup). Only applies to the immediately following test — use a new TEMP tag for each test that needs it. |
 
 Refer to a sample spec file [here](samples/assignment-name.codeval)
 
