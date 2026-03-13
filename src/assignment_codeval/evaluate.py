@@ -585,7 +585,7 @@ def test_case_hidden(test_case_command):
         None
     """
     check_test()
-    _cleanup_temp_files()
+    _pre_test_temp_cleanup()
 
     # Clear hint
     global test_case_hint
