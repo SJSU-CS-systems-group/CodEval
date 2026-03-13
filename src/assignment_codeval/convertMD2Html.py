@@ -123,9 +123,11 @@ def mdToHtml(file_name, files_resolver=None):
         numOfSampleTC = 1
         zip_paths = []
         for line in f:
-            if 'CRT_HW START' in line:
-                assignment_name = line[13:].strip()
-            elif 'CRT_HW END' in line:
+            if 'ASSIGNMENT START' in line:
+                assignment_name = line[len('ASSIGNMENT START'):].strip()
+            elif 'CRT_HW START' in line:
+                assignment_name = line[len('CRT_HW START'):].strip()
+            elif 'ASSIGNMENT END' in line or 'CRT_HW END' in line:
                 assignment = text
                 past_crt_hw = True
             elif line.startswith(('T ', 'I ', 'IB ', 'IF ', 'O ', 'OB ', 'OF ',

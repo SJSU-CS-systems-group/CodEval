@@ -38,7 +38,7 @@ Use a part of the course name that can uniquely identify the course on Canvas.
   - Copy temporary directory content to current directory for debugging
 
 ### Codeval File Matching
-When looking up the codeval file for an assignment, CodEval first tries to match by filename (case-insensitive). If no filename match is found, it falls back to checking the `CRT_HW START` title inside each `.codeval` file in the codeval directory. This allows the codeval filename to differ from the assignment name on Canvas as long as the `CRT_HW START` title matches.
+When looking up the codeval file for an assignment, CodEval first tries to match by filename (case-insensitive). If no filename match is found, it falls back to checking the `ASSIGNMENT START` title inside each `.codeval` file in the codeval directory. This allows the codeval filename to differ from the assignment name on Canvas as long as the `ASSIGNMENT START` title matches.
 
 ### Specification Tags
 Tags used in a spec file (\<course name>.codeval)
@@ -167,9 +167,9 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 
 ### Assignment description tags
 
-* CRT_HW START <Assignment_name> - usually at the beginning of the file. Then lines that follow this tag are the assignment description in markdown.
+* `ASSIGNMENT START <Assignment_name>` - usually at the beginning of the file. The lines that follow are the assignment description in markdown. (`CRT_HW START` is also accepted for backwards compatibility.)
 
-* CRT_HW END - ends the assignment description
+* `ASSIGNMENT END` - ends the assignment description. (`CRT_HW END` is also accepted.)
 
 ## Assignment description macros
 
@@ -182,57 +182,77 @@ Refer to a sample spec file [here](SQL/samples/ASSIGNMENT:CREATE.codeval)
 * COMPILE - this macro will be replaced with the compile command from the C tag in the specification file
 
 ### MODIFICATIONS REQUIRED IN THE SPECIFICATION FILE.
-1) Start the specification file with the tag CRT_HW START followed by a space followed by the name of assignment.
-	```  For ex: CRT_HW START Hello World```
-2) The following lines after the first line will contain the description of the assignment in Markdown format.
-3) The description ends with the last line containing just the tag CRT_HW END .
-	``` For ex: CRT_HW END ```
-4) After this tag, the content for grading the submission begins.
+1) Start the specification file with the tag `ASSIGNMENT START` followed by a space followed by the name of the assignment.
+   ```
+   ASSIGNMENT START Hello World
+   ```
+2) The lines after this tag contain the assignment description in Markdown format.
+3) The description ends with `ASSIGNMENT END`.
+   ```
+   ASSIGNMENT END
+   ```
+4) After this tag, the grading specification begins.
 
-	Addition of the Discussion Topic in the assignment description.
-	1) Insert the tag DISCUSSION_LINK wherever you want the corresponding discussion topic's link to appear.
-		```For ex: To access the discussion topic for this assignment you go here DISCUSSION_LINK```
+	#### Addition of the Discussion Topic in the assignment description.
+	Insert the tag `DISCUSSION_LINK` wherever you want the discussion topic's link to appear.
+	```
+	To access the discussion topic for this assignment, go here: DISCUSSION_LINK
+	```
 
 	#### Addition of sample examples in the assignment description.
-	1) Insert the tag EXMPLS followed by single space followed by the value. 
-	   Here value is the number of test cases to be displayed as sample examples. 
-	   At maximum it will print all the non hidden test cases.
-	   For ex: EXMPLS 5
-	#### Addition of the links to the files uploaded in the Codeval folder in the assignment description.
-	1) In order to add hyperlink to a file the markdown format is as follows:
-	   [file_name_to_be_displayed](Url_of_the_file)
-	   Here in the parenthesis where the Url is required,insert the tag
-	   FILE[name of file].
-	   For ex: FILE[file_name.extension]
-       If the file is not already in the Codeval folder, it will be extracted from a zip file in the
-       CodEval spec and uploaded automatically.
-	   
+	Insert the tag `EXMPLS` followed by a space and the number of test cases to display as sample examples. At most, it will print all non-hidden test cases.
+	```
+	EXMPLS 5
+	```
+	#### Addition of links to files uploaded in the Codeval folder.
+	Use `FILE[file_name]` in a markdown link where the URL would go:
+	```
+	[Download starter file](FILE[starter.c])
+	```
+	If the file is not already in the Codeval folder, it will be extracted from a zip file in the spec and uploaded automatically.
+
 ### UPLOAD THE REQUIRED FILES IN CODEVAL FOLDER IN FILES SECTION.
-1) Create a folder called `assignmentFiles` which should contain all the necessary files including
-	the specification file.
-	   
-### EXAMPLE OF THE SPECIFICATION FILE.	
-	
-	CRT_HW START Bag Of Strings
-	# Description
-	## Problem Statement
-	- This Is An Example For The Description Of The Assignment In Markdown.
-	- To Download The File [Hello_World](URL_OF_HW "Helloworld.Txt")
+Create a folder called `assignmentFiles` which should contain all the necessary files including the specification file.
 
-	## Sample Examples
-	EXMPLS 3
+### EXAMPLE SPECIFICATION FILE
 
-	## Discussion Topic
-	Here Is The Link To The Discussion Topic: DISCSN_URL
+```
+ASSIGNMENT START Hello World
+# Hello World
 
-	### Rubric 
-	| Cases | Points|
-	| ----- |----- |
-	| Base Points | 50 |
+## Problem Statement
+Write a C program that reads a name from stdin and prints `Hello, <name>!`
 
-	CRT_HW END  
+## Submission
+Submit your code to GITHUB_DIRECTORY
 
-	C cc -o bigbag --std=gnu11 bigbag.c
+## Sample Examples
+EXMPLS 2
+
+## Discussion
+DISCSN_URL
+
+### Rubric
+| Cases       | Points |
+|-------------|--------|
+| Base Points | 20     |
+| Test Case 1 | 40     |
+| Test Case 2 | 40     |
+ASSIGNMENT END
+
+# Compile the submission
+C gcc -o hello hello.c
+
+# Test case 1: greet "World"
+T ./hello
+I World
+O Hello, World!
+
+# Test case 2: greet "Alice"
+T ./hello
+I Alice
+O Hello, Alice!
+```
 
 
 ## 4. Test Assignments with AI Models
@@ -323,7 +343,7 @@ ai_test_results/
 ```
 
 ### Notes
-- The command extracts the assignment description from the codeval file (between `CRT_HW START` and `CRT_HW END` tags)
+- The command extracts the assignment description from the codeval file (between `ASSIGNMENT START` and `ASSIGNMENT END` tags; `CRT_HW START`/`CRT_HW END` are also accepted)
 - Support files from `support_files/` directory are automatically copied for evaluation
 - Results include pass/fail status, response time, and any errors
 - Use multiple attempts (`-n`) to account for AI response variability
