@@ -85,6 +85,21 @@
     .pass { color: #2e7d32; font-weight: 600; }
     .fail { color: #c62828; font-weight: 600; }
     .error { color: #e65100; font-weight: 600; }
+    .expected-link {
+      font-size: 0.78rem;
+      font-weight: normal;
+      color: #1a73e8;
+      text-decoration: none;
+      margin-left: 8px;
+    }
+    .expected-link:hover { text-decoration: underline; }
+    .expected-download {
+      display: inline-block;
+      font-size: 0.82rem;
+      color: #1a73e8;
+      text-decoration: none;
+    }
+    .expected-download:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -106,6 +121,7 @@
       <h2>Output</h2>
       <pre>{{OUTPUT}}</pre>
     </div>
+    <div style="padding: 0 24px 16px; display: flex; flex-direction: column; gap: 6px;">{{EXPECTED_OUTPUTS}}</div>
   </div>
 </body>
 </html>

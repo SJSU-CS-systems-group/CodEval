@@ -17,6 +17,91 @@ from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_c
 from assignment_codeval.commons import debug, error, info, warn, despace
 
 
+def _parse_codeval_test_info(codeval_file):
+    """Parse a codeval file and return a mapping from test case number to test metadata.
+
+    Returns dict: {test_case_num: {'hidden': bool, 'of_file': str or None}}
+    Only T, HT, and TCMD tags increment the test case counter (matching evaluate.py).
+    """
+    test_info = {}
+    test_num = 0
+    in_crt_hw_block = False
+
+    with open(codeval_file, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith('CRT_HW'):
+                in_crt_hw_block = not in_crt_hw_block
+                continue
+            if in_crt_hw_block:
+                continue
+
+            parts = stripped.split(None, 1)
+            tag = parts[0]
+            args = parts[1].strip() if len(parts) > 1 else ''
+
+            if tag in ('T', 'HT', 'TCMD'):
+                test_num += 1
+                test_info[test_num] = {
+                    'hidden': tag == 'HT',
+                    'of_file': None,
+                    'tag': tag,
+                }
+            elif tag == 'OF' and test_num > 0 and test_info[test_num]['of_file'] is None:
+                test_info[test_num]['of_file'] = args
+
+    return test_info
+
+
+def _read_of_file_content(of_file, codeval_file):
+    """Try to read the content of an OF file referenced in a codeval file.
+
+    Looks in the codeval directory first, then inside any Z zip files.
+    Returns the file content as a string, or None if not found.
+    """
+    codeval_dir = os.path.dirname(codeval_file)
+
+    # Try direct path relative to codeval directory
+    candidate = os.path.join(codeval_dir, of_file)
+    if os.path.isfile(candidate):
+        try:
+            with open(candidate, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+        except OSError:
+            pass
+
+    # Try inside Z zip files referenced in the codeval file
+    zip_files = []
+    in_crt_hw_block = False
+    with open(codeval_file, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith('CRT_HW'):
+                in_crt_hw_block = not in_crt_hw_block
+                continue
+            if in_crt_hw_block:
+                continue
+            if stripped.startswith('Z '):
+                zip_files.append(stripped.split(None, 1)[1].strip())
+
+    of_basename = os.path.basename(of_file)
+    for zf_name in zip_files:
+        zf_path = os.path.join(codeval_dir, zf_name)
+        if not os.path.isfile(zf_path):
+            continue
+        try:
+            with ZipFile(zf_path) as zf:
+                for name in zf.namelist():
+                    if os.path.basename(name) == of_basename:
+                        return zf.read(name).decode('utf-8', errors='replace')
+        except Exception:
+            continue
+
+    return None
+
+
 def _extract_codeval_title(filepath):
     """Extract the assignment title from the CRT_HW START line of a codeval file.
     Returns None if no CRT_HW START line is found."""
@@ -37,7 +122,7 @@ def find_codeval_file(codeval_dir, assignment_name):
     First tries matching by filename, then falls back to checking
     CRT_HW START titles inside each .codeval file.
     Returns the full path if found, or None if not found."""
-    target = f"{assignment_name}.codeval".lower()
+    target = f"{despace(assignment_name)}.codeval".lower()
     codeval_files = []
     for f in os.listdir(codeval_dir):
         if f.lower() == target:
@@ -46,7 +131,7 @@ def find_codeval_file(codeval_dir, assignment_name):
             codeval_files.append(f)
 
     # Fallback: check CRT_HW START titles
-    target_name = assignment_name.lower()
+    target_name = despace(assignment_name).lower()
     for f in codeval_files:
         filepath = os.path.join(codeval_dir, f)
         title = _extract_codeval_title(filepath)
@@ -100,6 +185,7 @@ def _get_canvas_config():
 
 def write_html_file(dirpath):
     import html as _html
+    import re as _re
 
     assignment_name = student_name = attempt_no = last_submitted = ""
     with open(f"{dirpath}/metadata.txt", "r") as f:
@@ -116,20 +202,80 @@ def write_html_file(dirpath):
     with open(f"{dirpath}/comments.txt", "r") as f:
         comments_content = f.read()
 
+    # Load test case info and OF file contents from the codeval file
+    of_contents = {}  # test_num -> file content string (only non-hidden T tests)
+    try:
+        codeval_file = None
+        codeval_path_file = os.path.join(dirpath, "codeval_path.txt")
+        if os.path.isfile(codeval_path_file):
+            with open(codeval_path_file) as f:
+                path = f.read().strip()
+            if os.path.isfile(path):
+                codeval_file = path
+        if codeval_file is None:
+            parser = ConfigParser()
+            config_file = click.get_app_dir("codeval.ini")
+            parser.read(config_file)
+            if 'CODEVAL' in parser and 'directory' in parser['CODEVAL']:
+                codeval_file = find_codeval_file(parser['CODEVAL']['directory'], assignment_name)
+        if codeval_file:
+            test_info = _parse_codeval_test_info(codeval_file)
+            for test_num, info in test_info.items():
+                if not info['hidden'] and info['of_file'] and info['tag'] == 'T':
+                    content = _read_of_file_content(info['of_file'], codeval_file)
+                    if content is not None:
+                        of_contents[test_num] = content
+    except Exception:
+        pass  # if anything fails, just omit expected output links
+
     # Color each line based on PASS/FAIL/error keywords
+    # For failed T test cases that have an OF file, add a link to view expected output
+    _test_case_re = _re.compile(r'^Test case (\d+) of \d+$')
+
+    failed_test_nums = set()
+
     def colorize_lines(text):
         lines_html = []
+        current_test_num = None
         for line in text.split('\n'):
             escaped = _html.escape(line)
-            if line.startswith('PASS'):
+            m = _test_case_re.match(line)
+            if m:
+                current_test_num = int(m.group(1))
+                lines_html.append(escaped)
+                continue
+            if line.startswith('Passed'):
                 lines_html.append(f'<span class="pass">{escaped}</span>')
+                current_test_num = None
             elif line.startswith('FAIL'):
-                lines_html.append(f'<span class="fail">{escaped}</span>')
+                fail_html = f'<span class="fail">{escaped}</span>'
+                if current_test_num is not None and current_test_num in of_contents:
+                    failed_test_nums.add(current_test_num)
+                    anchor_id = f'expected-{current_test_num}'
+                    fail_html += f' <a href="#{anchor_id}" class="expected-link">View expected output ↓</a>'
+                current_test_num = None
+                lines_html.append(fail_html)
             elif any(line.startswith(k) for k in ('ERROR', 'TOOK LONGER', 'FAILED')):
                 lines_html.append(f'<span class="error">{escaped}</span>')
             else:
                 lines_html.append(escaped)
         return '\n'.join(lines_html)
+
+    def build_expected_outputs_html():
+        if not failed_test_nums:
+            return ''
+        import base64 as _base64
+        parts = []
+        for test_num in sorted(failed_test_nums):
+            content = of_contents[test_num]
+            b64 = _base64.b64encode(content.encode('utf-8')).decode('ascii')
+            data_uri = f'data:text/plain;base64,{b64}'
+            parts.append(
+                f'<a id="expected-{test_num}" href="{data_uri}" '
+                f'download="expected_output_test{test_num}.txt" '
+                f'class="expected-download">Download expected output for Test Case {test_num}</a>'
+            )
+        return '\n'.join(parts)
 
     try:
         dt = datetime.strptime(last_submitted, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
@@ -138,7 +284,7 @@ def write_html_file(dirpath):
     except (ValueError, TypeError):
         pass
 
-    pass_count = sum(1 for l in comments_content.split('\n') if l.startswith('PASS'))
+    pass_count = sum(1 for l in comments_content.split('\n') if l.startswith('Passed'))
     fail_count = sum(1 for l in comments_content.split('\n') if l.startswith('FAIL'))
 
     template_path = os.path.join(os.path.dirname(__file__), 'test_template.html')
@@ -153,6 +299,7 @@ def write_html_file(dirpath):
         .replace('{{PASS_COUNT}}', str(pass_count))
         .replace('{{FAIL_COUNT}}', str(fail_count))
         .replace('{{OUTPUT}}', colorize_lines(comments_content))
+        .replace('{{EXPECTED_OUTPUTS}}', build_expected_outputs_html())
     )
 
     with open(f"{dirpath}/results.html", "w", encoding="utf-8") as dst:
@@ -339,6 +486,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
             warn(f"no codeval file found for {assignment_name} in {codeval_dir}")
             continue
 
+        with open(os.path.join(dirpath, "codeval_path.txt"), "w") as f:
+            f.write(os.path.abspath(codeval_file))
+
         # First pass: get CTO, CD tags, and collect Z files (don't extract yet)
         compile_timeout = 20
         assignment_working_dir = "."
@@ -387,7 +537,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                                 os.chmod(os.path.join(dest_dir, f.filename), perms)
 
         if not move_to_next_submission:
-            command = raw_command.replace("EVALUATE", "cd /submissions; assignment-codeval run-evaluation codeval.txt")
+            command = raw_command.replace("EVALUATE", "cd /submissions 2>/dev/null || true; assignment-codeval run-evaluation codeval.txt")
 
             with TemporaryDirectory("cedir", dir="/var/tmp") as link_dir:
                 submission_link = os.path.join(link_dir, "submissions")
@@ -397,6 +547,15 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                     out = b"no submission directory found"
                 else:
                     shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
+                    codeval_source_dir = os.path.dirname(codeval_file)
+                    with open(codeval_file, "r") as cf:
+                        for cf_line in cf:
+                            parts = cf_line.strip().split(None, 1)
+                            if len(parts) == 2 and parts[0] in ("OF", "IF"):
+                                ref_file = parts[1].strip()
+                                src = os.path.join(codeval_source_dir, ref_file)
+                                if os.path.isfile(src):
+                                    shutil.copy(src, os.path.join(full_assignment_working_dir, ref_file))
 
                     command = command.replace("SUBMISSIONS", full_assignment_working_dir)
                     info(f"command to execute: {command}")
