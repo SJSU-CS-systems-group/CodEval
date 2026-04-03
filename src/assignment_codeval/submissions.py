@@ -273,7 +273,8 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                     write_html_file(dirpath)
                     file_id = upload_file_for_comment(canvas, course.id, assignment.id, student_id, f"{dirpath}/results.html")
                     with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read(4096)
+                        # canvas max is 65000, so 32K will keep us well below that
+                        comment = fd.read(32*1024)
                         comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
                     subs_file = f"{dirpath}/SUBSTITUTIONS.txt"
                     if os.path.isfile(subs_file):
