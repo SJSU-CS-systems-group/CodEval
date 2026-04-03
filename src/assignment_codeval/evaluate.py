@@ -683,10 +683,9 @@ def check_output_file(output_file):
     Returns:
         None
     """
-    output_length(os.path.getsize(output_file)) 
     with open(output_file, "r") as infile:
         output_lines = infile.readlines()
-        
+
     with open(get_testing_path("expectedoutput"), "a") as outfile:
         outfile.writelines(output_lines)
 
