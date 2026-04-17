@@ -13,6 +13,7 @@ import pytest
 
 # The tests/ directory (one level up from e2e/)
 TESTS_DIR = Path(__file__).parent.parent
+UNIT_DIR = TESTS_DIR / "unit"
 
 CLI = "assignment-codeval"
 
@@ -66,47 +67,47 @@ class TestCliHelp:
 
 class TestRunEvaluationPassing:
     def test_basic_stdout_check(self):
-        result = run_cli("run-evaluation", "test_basic.codeval")
+        result = run_cli("run-evaluation", "test_basic.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_input_echo(self):
-        result = run_cli("run-evaluation", "test_input.codeval")
+        result = run_cli("run-evaluation", "test_input.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_timeout_tag_respected(self):
-        result = run_cli("run-evaluation", "test_timeout.codeval")
+        result = run_cli("run-evaluation", "test_timeout.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_exit_code_tag(self):
-        result = run_cli("run-evaluation", "test_exit_code.codeval")
+        result = run_cli("run-evaluation", "test_exit_code.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_hidden_test_case_passes(self):
-        result = run_cli("run-evaluation", "test_hidden.codeval")
+        result = run_cli("run-evaluation", "test_hidden.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_bare_output_tags(self):
-        result = run_cli("run-evaluation", "test_bare_tags.codeval")
+        result = run_cli("run-evaluation", "test_bare_tags.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_multiple_inputs(self):
-        result = run_cli("run-evaluation", "test_multiple_inputs.codeval")
+        result = run_cli("run-evaluation", "test_multiple_inputs.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_comprehensive_multi_test(self):
-        result = run_cli("run-evaluation", "test_comprehensive.codeval")
+        result = run_cli("run-evaluation", "test_comprehensive.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_file_io(self):
-        result = run_cli("run-evaluation", "test_file_io.codeval")
+        result = run_cli("run-evaluation", "test_file_io.codeval", cwd=UNIT_DIR)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_output_includes_pass(self):
-        result = run_cli("run-evaluation", "test_basic.codeval")
+        result = run_cli("run-evaluation", "test_basic.codeval", cwd=UNIT_DIR)
         assert "Passed" in result.stdout or "passed" in result.stdout.lower()
 
     def test_output_includes_timing(self):
-        result = run_cli("run-evaluation", "test_basic.codeval")
+        result = run_cli("run-evaluation", "test_basic.codeval", cwd=UNIT_DIR)
         assert "took" in result.stdout and "seconds" in result.stdout
 
 
