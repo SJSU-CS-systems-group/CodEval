@@ -75,8 +75,8 @@ def extract_assignment_from_codeval(codeval_path: str) -> tuple[str, str, str]:
     with open(codeval_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Extract content between CRT_HW START and CRT_HW END
-    match = re.search(r"CRT_HW START \S+\n(.*?)CRT_HW END", content, re.DOTALL)
+    # Extract content between ASSIGNMENT START / CRT_HW START and ASSIGNMENT END / CRT_HW END
+    match = re.search(r"(?:ASSIGNMENT START|CRT_HW START) \S+\n(.*?)(?:ASSIGNMENT END|CRT_HW END)", content, re.DOTALL)
     if match:
         description = match.group(1).strip()
     else:

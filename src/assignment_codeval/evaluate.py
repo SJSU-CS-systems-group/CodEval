@@ -939,12 +939,12 @@ def parse_tags(tags: list[str]):
         if not stripped or stripped.startswith("#"):
             continue
 
-        # Check for CRT_HW block delimiter
-        if stripped.startswith("CRT_HW"):
+        # Check for ASSIGNMENT START/END (or legacy CRT_HW) block delimiter
+        if stripped.startswith("CRT_HW") or stripped.startswith("ASSIGNMENT START") or stripped.startswith("ASSIGNMENT END"):
             in_crt_hw_block = not in_crt_hw_block
             continue
 
-        # Skip lines inside CRT_HW block
+        # Skip lines inside assignment description block
         if in_crt_hw_block:
             continue
 
@@ -1349,7 +1349,7 @@ def run_evaluation(codeval_file):
         in_crt_hw_block = False
         for testcase in testcases:
             stripped = testcase.strip()
-            if stripped.startswith("CRT_HW"):
+            if stripped.startswith("CRT_HW") or stripped.startswith("ASSIGNMENT START") or stripped.startswith("ASSIGNMENT END"):
                 in_crt_hw_block = not in_crt_hw_block
                 continue
             if in_crt_hw_block:
