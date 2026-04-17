@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 from assignment_codeval.export_tests import export_tests, parse_codeval_tests
 
-CODEVAL_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_comprehensive.codeval")
+CODEVAL_FILE = os.path.join(os.path.dirname(__file__), "test_comprehensive.codeval")
 
 
 class TestParseCodevalTests:
