@@ -252,7 +252,7 @@ def write_html_file(dirpath):
                 if current_test_num is not None and current_test_num in of_contents:
                     failed_test_nums.add(current_test_num)
                     anchor_id = f'expected-{current_test_num}'
-                    fail_html += f' <a href="#{anchor_id}" class="expected-link">View expected output ↓</a>'
+                    fail_html += f' <a href="#{anchor_id}" class="expected-link">View expected output ↑</a>'
                 current_test_num = None
                 lines_html.append(fail_html)
             elif any(line.startswith(k) for k in ('ERROR', 'TOOK LONGER', 'FAILED')):
@@ -273,9 +273,9 @@ def write_html_file(dirpath):
             parts.append(
                 f'<a id="expected-{test_num}" href="{data_uri}" '
                 f'download="expected_output_test{test_num}.txt" '
-                f'class="expected-download">Download expected output for Test Case {test_num}</a>'
+                f'class="expected-download">Expected output for Test Case {test_num}</a>'
             )
-        return '\n'.join(parts)
+        return '<pre>' + '\n'.join(parts) + '</pre>'
 
     try:
         dt = datetime.strptime(last_submitted, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
@@ -299,6 +299,7 @@ def write_html_file(dirpath):
         .replace('{{PASS_COUNT}}', str(pass_count))
         .replace('{{FAIL_COUNT}}', str(fail_count))
         .replace('{{OUTPUT}}', colorize_lines(comments_content))
+        .replace('{{EXPECTED_HEADING}}', 'All tests passed' if not failed_test_nums else 'Download Expected Output Files for Failed Test Case')
         .replace('{{EXPECTED_OUTPUTS}}', build_expected_outputs_html())
     )
 
