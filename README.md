@@ -203,17 +203,18 @@ src/assignment_codeval/
 ├── install_assignment.py # Install codeval files to local/remote destinations
 ├── recent_comments.py  # List recent codeval comments on Canvas
 ├── check_grading.py    # Check which submissions are missing grading
+├── export_tests.py     # Export test cases from codeval files
 ├── convertMD2Html.py   # Markdown to HTML conversion
 ├── commons.py          # Shared utilities
-└── file_utils.py       # File handling utilities
+├── file_utils.py       # File handling utilities
+└── test_template.html  # HTML template for test results
 
 tests/
-├── test_codeval.py           # Main test suite
-├── test_create_assignment.py # Assignment creation tests
-├── test_evaluate_submissions.py # Evaluate submissions tests
-├── test_install_assignment.py # Install assignment tests
-├── test_check_grading.py     # Check grading tests
-└── sample_*.py               # Sample programs for testing
+├── unit/               # Unit tests and sample programs/codeval fixtures
+├── integration/
+│   └── test_codeval.py # Integration test suite
+└── e2e/
+    └── test_e2e.py     # End-to-end tests
 
 samples/
 ├── codeval.ini               # Sample configuration file
