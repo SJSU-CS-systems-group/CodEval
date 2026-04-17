@@ -7,8 +7,8 @@ import pytest
 
 from assignment_codeval.evaluate import _render_diff_output
 
-# Get all .codeval test files
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+# .codeval fixture files live in tests/, one level up from tests/integration/
+TEST_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CODEVAL_FILES = sorted(glob.glob(os.path.join(TEST_DIR, "*.codeval")))
 
 def _tool_works(*cmd):
