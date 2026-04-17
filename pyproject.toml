@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7.0"]
+test = ["pytest>=7.0", "pytest-cov"]
 
 [project.scripts]
 assignment-codeval = "assignment_codeval.cli:cli"
