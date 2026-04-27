@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.30
+
+- Fix strict assignment name match in `get_assignment` to despace before comparing, so the strict-equality fallback can actually narrow down candidates
+- Add GitHub Actions workflow with C++ (make) and Python codeval assignments
+- Make filename optional for CF/NCF function detection tags
+- Add TEMP tag to auto-delete temp files before tests
+- Fix HT temp cleanup
+- Remove truncation in results.html
+- Add `--path` option to `list-codeval-assignments` to show codeval file path
+- Warn when bare shell commands are found without CMD prefix
+
 ## 0.0.29
 
 - Codeval file lookup now falls back to matching by CRT_HW START title when filename doesn't match
