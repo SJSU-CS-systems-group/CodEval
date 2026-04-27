@@ -98,7 +98,7 @@ def get_assignment(course, assignment_name):
             error(fr"    {a.name}")
         sys.exit(2)
     elif len(assignments) > 1:
-        strict_name_assignments = [a for a in assignments if a.name == assignment_name]
+        strict_name_assignments = [a for a in assignments if despace(a.name) == assignment_name]
         if len(strict_name_assignments) == 1:
             assignments = strict_name_assignments
         else:
