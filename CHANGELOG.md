@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.31
+
+- Rename `CRT_HW START`/`CRT_HW END` block tags to `ASSIGNMENT START`/`ASSIGNMENT END` (old names still accepted for backwards compatibility)
+- Support `GITHUB_DIRECTORY` placeholder in `CD` tag
+- Add expected-output links to `results.html` for failed test cases (link to `IF`/`OF`/`EF` files)
+- Add `pytest-cov` and Codecov coverage reporting; add coverage badge to README
+- Reorganize `tests/` into `unit/`, `integration/`, `e2e/`; move docs into `docs/`
+- Add e2e tests for CLI commands and comprehensive unit tests targeting 80% coverage
+
 ## 0.0.30
 
 - Fix strict assignment name match in `get_assignment` to despace before comparing, so the strict-equality fallback can actually narrow down candidates
