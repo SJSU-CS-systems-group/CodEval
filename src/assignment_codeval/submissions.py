@@ -420,9 +420,10 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                 if submission:
                     write_html_file(dirpath)
                     file_id = upload_file_for_comment(canvas, course.id, assignment.id, student_id, f"{dirpath}/results.html")
-                    with open(f"{dirpath}/comments.txt", "r") as fd:
-                        comment = fd.read(4096)
-                        comment = comment.replace("\0", "\\0").strip().replace("<", "&lt;")
+                    with open(f"{dirpath}/comments.txt", "rb") as fd:
+                        # canvas max is 65000, so 32K will keep us well below that
+                        comment_bytes = fd.read(32*1024).replace(b'\0', b'\\0').replace(b'<', b'&lt;')
+                        comment = comment_bytes[:32*1024].decode('utf-8', errors='ignore')
                     subs_file = f"{dirpath}/SUBSTITUTIONS.txt"
                     if os.path.isfile(subs_file):
                         substitutions = _parse_substitutions_file(subs_file)
