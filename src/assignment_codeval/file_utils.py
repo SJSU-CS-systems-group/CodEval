@@ -5,7 +5,7 @@ import subprocess
 
 import requests
 import zipfile
-from assignment_codeval.commons import debug, error
+from assignment_codeval.commons import debug, errorWithException
 
 
 def download_attachment(directory, attachment):
@@ -13,26 +13,31 @@ def download_attachment(directory, attachment):
         curPath = os.getcwd()
         directory = os.path.join(curPath, directory)
 
-    fname = attachment['display_name']
-    prefix = os.path.splitext(fname)[0]
-    suffix = os.path.splitext(fname)[1]
+    # display_name is attacker-controlled; collapse it to a bare filename so it
+    # cannot escape `directory` via path separators or "..".
+    fname = os.path.basename(attachment['display_name'])
+    if fname in ('', '.', '..'):
+        errorWithException(f"refusing to download attachment with unsafe name: {attachment['display_name']!r}")
     durl = attachment['url']
+    dest = os.path.join(directory, fname)
     with requests.get(durl) as response:
         if response.status_code != 200:
-            error(f'error {response.status_code} fetching {durl}')
-        with open(os.path.join(directory, f"{prefix}{suffix}"), "wb") as fd:
-            for chunk in response.iter_content():
+            # Don't write the error page body as if it were the attachment.
+            errorWithException(f'error {response.status_code} fetching {durl}')
+        with open(dest, "wb") as fd:
+            for chunk in response.iter_content(chunk_size=8192):
                 fd.write(chunk)
 
-    return os.path.join(directory, fname)
+    return dest
 
 
 def unzip(filepath, dir, delete=False):
     with zipfile.ZipFile(filepath) as file:
         for zi in file.infolist():
-            file.extract(zi.filename, path=dir)
+            # extract() sanitizes "../" and absolute members and returns the
+            # real path it wrote; stat/chmod that, not the raw archive name.
+            fname = file.extract(zi.filename, path=dir)
             debug(f"extracting {zi.filename}")
-            fname = os.path.join(dir, zi.filename)
             s = os.stat(fname)
             # the user executable bit is set
             perms = (s.st_mode | (zi.external_attr >> 16)) & 0o777

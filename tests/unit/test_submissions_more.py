@@ -10,10 +10,57 @@ from assignment_codeval.submissions import (
     get_github_repo_url,
     _parse_substitutions_file,
     _apply_substitutions,
+    _is_within_tree,
+    _safe_copy_into_tree,
+    _download_assignment_submissions,
     download_submissions,
     list_codeval_assignments,
 )
 from assignment_codeval.canvas_utils import get_course, get_assignment
+
+
+# ---------------------------------------------------------------------------
+# _safe_copy_into_tree / _is_within_tree (symlink-escape protection)
+# ---------------------------------------------------------------------------
+
+class TestSafeCopyIntoTree:
+    def test_copies_normal_file(self, tmp_path):
+        src = tmp_path / "src.txt"
+        src.write_text("data")
+        tree = tmp_path / "tree"
+        tree.mkdir()
+        dst = tree / "out.txt"
+        assert _safe_copy_into_tree(str(src), str(dst), str(tree)) is True
+        assert dst.read_text() == "data"
+
+    def test_overwrites_symlink_in_tree_without_following(self, tmp_path):
+        src = tmp_path / "src.txt"
+        src.write_text("real")
+        outside = tmp_path / "secret.txt"
+        outside.write_text("secret")
+        tree = tmp_path / "tree"
+        tree.mkdir()
+        dst = tree / "codeval.txt"
+        os.symlink(str(outside), str(dst))  # student-planted symlink
+        assert _safe_copy_into_tree(str(src), str(dst), str(tree)) is True
+        # The symlink target must be untouched; dst is now a real file.
+        assert outside.read_text() == "secret"
+        assert not os.path.islink(str(dst))
+        assert dst.read_text() == "real"
+
+    def test_refuses_when_parent_resolves_outside_tree(self, tmp_path):
+        src = tmp_path / "src.txt"
+        src.write_text("real")
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        tree = tmp_path / "tree"
+        tree.mkdir()
+        # Student makes a directory inside the tree a symlink pointing out.
+        escape = tree / "sub"
+        os.symlink(str(outside_dir), str(escape))
+        dst = escape / "codeval.txt"
+        assert _safe_copy_into_tree(str(src), str(dst), str(tree)) is False
+        assert not (outside_dir / "codeval.txt").exists()
 
 
 @pytest.fixture(autouse=True)
@@ -215,6 +262,53 @@ class TestDownloadSubmissionsCommand:
         assert result.exit_code == 0
         meta = tmp_path / "CS101" / "HW1" / "99" / "metadata.txt"
         assert meta.exists()
+
+    def test_attachment_cannot_overwrite_control_files(self, tmp_path):
+        """A student attachment named SUBSTITUTIONS.txt must not be written (grade forgery)."""
+        course = MagicMock()
+        course.name = "CS101"
+        assignment = MagicMock()
+        assignment.name = "HW1"
+
+        downloaded = []
+
+        def make_attachment(name):
+            att = MagicMock()
+            att.filename = name
+            att.download = MagicMock(side_effect=lambda p: downloaded.append(p))
+            return att
+
+        submission = MagicMock()
+        submission.attempt = 1
+        submission.user_id = "99"
+        submission.user = {"name": "Mallory"}
+        submission.submission_comments = []
+        submission.submitted_at = "2024-01-01T12:00:00Z"
+        submission.late = False
+        submission.body = None
+        submission.attachments = [
+            make_attachment("SUBSTITUTIONS.txt"),   # reserved -> skipped
+            make_attachment("../../escape.txt"),     # traversal -> collapsed
+            make_attachment("homework.py"),          # normal -> kept
+        ]
+        assignment.get_submissions.return_value = [submission]
+
+        parser = ConfigParser()
+        with patch("assignment_codeval.submissions.click.get_app_dir",
+                   return_value=str(tmp_path / "codeval.ini")):
+            with patch("assignment_codeval.submissions.ConfigParser", return_value=parser):
+                with patch("assignment_codeval.submissions.get_github_repo_url", return_value=None):
+                    _download_assignment_submissions(
+                        MagicMock(), course, assignment, str(tmp_path),
+                        include_commented=True, codeval_prefix="codeval: ",
+                        include_empty=False, uncommented_for=0, for_name=None)
+
+        student_dir = tmp_path / "CS101" / "HW1" / "99"
+        # The forgery file was never written; the real bookkeeping file is intact.
+        assert not any(p.endswith("SUBSTITUTIONS.txt") for p in downloaded)
+        # Traversal name collapsed to a basename inside the student dir.
+        assert str(student_dir / "escape.txt") in downloaded
+        assert str(student_dir / "homework.py") in downloaded
 
     def test_active_requires_codeval_config(self, tmp_path):
         canvas = MagicMock()

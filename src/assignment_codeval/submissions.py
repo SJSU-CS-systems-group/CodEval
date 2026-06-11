@@ -16,6 +16,43 @@ import requests
 from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_courses, get_assignment
 from assignment_codeval.commons import debug, error, info, warn, despace
 
+# Bookkeeping files the tool writes into each student directory. A student must
+# never be able to clobber these via an attachment filename — in particular
+# SUBSTITUTIONS.txt is applied to their own grading comment, which would let a
+# student forge their grade.
+_RESERVED_SUBMISSION_FILES = {
+    "metadata.txt", "content.txt", "comments.txt", "comments.txt.sent",
+    "SUBSTITUTIONS.txt", "codeval_path.txt", "codeval.txt", "last-comment.txt",
+    "results.html", "gh_success.txt",
+}
+
+
+def _is_within_tree(tree_root, path):
+    """True if ``path``'s parent directory resolves to a location inside ``tree_root``.
+
+    Resolves symlinks so a student-planted symlink in a cloned repo cannot
+    redirect our file writes outside the submission directory.
+    """
+    real_root = os.path.realpath(tree_root)
+    real_parent = os.path.realpath(os.path.dirname(path))
+    return real_parent == real_root or real_parent.startswith(real_root + os.sep)
+
+
+def _safe_copy_into_tree(src, dst, tree_root):
+    """Copy ``src`` to ``dst``, refusing to follow symlinks out of ``tree_root``.
+
+    Returns True if the file was copied, False if the destination was rejected
+    as escaping the tree (possible symlink attack).
+    """
+    if not _is_within_tree(tree_root, dst):
+        error(f"refusing to write {dst}: resolves outside the submission tree")
+        return False
+    # Don't write *through* a student-planted symlink at the final path.
+    if os.path.islink(dst):
+        os.unlink(dst)
+    shutil.copy(src, dst)
+    return True
+
 
 def _parse_codeval_test_info(codeval_file):
     """Parse a codeval file and return a mapping from test case number to test metadata.
@@ -428,9 +465,14 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                         substitutions = _parse_substitutions_file(subs_file)
                         comment = _apply_substitutions(comment, substitutions)
                     if delete:
-                        all_comments = sorted(submission.submission_comments, key=lambda c: c['created_at'])
-                        if all_comments:
-                            last_comment_id = all_comments[-1]["id"]
+                        # Only delete a previous codeval comment, never a
+                        # student's or TA's comment that happens to be newest.
+                        codeval_comments = sorted(
+                            (c for c in submission.submission_comments
+                             if c.get('comment', '').startswith(codeval_prefix.rstrip())),
+                            key=lambda c: c['created_at'])
+                        if codeval_comments:
+                            last_comment_id = codeval_comments[-1]["id"]
                             delete_submission_comment(canvas, course.id, assignment.id, student_id, last_comment_id)
                     canvas_url, canvas_token = _get_canvas_config()
                     requests.put(
@@ -441,10 +483,12 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                             'comment[file_ids][]': file_id,
                         }
                     ).raise_for_status()
+                    # Only mark as sent once we have actually uploaded; otherwise
+                    # a transient "no submission" would skip this student forever.
+                    with open(f"{dirpath}/comments.txt.sent", "w") as fd:
+                        fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
                 else:
                     warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
-                with open(f"{dirpath}/comments.txt.sent", "w") as fd:
-                    fd.write(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
 
 
 @click.command()
@@ -472,8 +516,10 @@ def evaluate_submissions(codeval_dir, submissions_dir):
     raw_command = parser["RUN"]["command"]
     if not raw_command:
         warn(f"commands section under [RUN] in {parser.config_file} is empty")
-    for dirpath, dirnames, filenames in os.walk(submissions_dir):
-        match = re.match(fr'^{submissions_dir}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
+    clean_submissions_dir = submissions_dir.rstrip('/').replace('\\', '/')
+    for dirpath, dirnames, filenames in os.walk(clean_submissions_dir):
+        dirpath = dirpath.replace('\\', '/')
+        match = re.match(fr'^{re.escape(clean_submissions_dir)}/([^/]+)/([^/]+)/([^/]+)$', dirpath)
         if not match:
             continue
 
@@ -496,17 +542,27 @@ def evaluate_submissions(codeval_dir, submissions_dir):
         has_cd_tag = False
         zip_files = []
         move_to_next_submission = False
+        in_crt_hw_block = False
         with open(codeval_file, "r") as fd:
             for line in fd:
                 line = line.strip()
-                if line.startswith("CTO"):
+                # Skip the Canvas description markdown; it is prose, not tags
+                # (e.g. "Zip your solution" must not be read as a Z tag).
+                if line.startswith("CRT_HW"):
+                    in_crt_hw_block = not in_crt_hw_block
+                    continue
+                if in_crt_hw_block or not line:
+                    continue
+                parts = line.split(None, 1)
+                tag = parts[0]
+                if tag == "CTO":
                     try:
-                        compile_timeout = int(line.split(None, 1)[1])
-                    except Exception:
+                        compile_timeout = int(parts[1])
+                    except (IndexError, ValueError):
                         warn(f"could not parse compile timeout from {line}, using default {compile_timeout}")
-                if line.startswith("CD"):
+                if tag == "CD" and len(parts) > 1:
                     has_cd_tag = True
-                    cd_dir = line.split()[1].strip()
+                    cd_dir = parts[1].split()[0].strip()
                     if cd_dir == "GITHUB_DIRECTORY":
                         cd_dir = assignment_name
                     assignment_working_dir = os.path.normpath(
@@ -515,8 +571,8 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         out = f"{assignment_working_dir} does not exist or is not a directory\n".encode('utf-8')
                         move_to_next_submission = True
                         break
-                if line.startswith("Z"):
-                    zip_files.append(line.split(None, 1)[1])
+                if tag == "Z" and len(parts) > 1:
+                    zip_files.append(parts[1].strip())
 
         # If no CD tag and this is a GitHub submission (has .git), use assignment name as working dir
         if not has_cd_tag and os.path.exists(os.path.join(submission_dir, ".git")):
@@ -549,8 +605,12 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                 full_assignment_working_dir = os.path.join(submission_link, assignment_working_dir)
                 if not os.path.isdir(full_assignment_working_dir):
                     out = b"no submission directory found"
+                elif not _safe_copy_into_tree(
+                        codeval_file,
+                        os.path.join(full_assignment_working_dir, "codeval.txt"),
+                        submission_dir):
+                    out = b"refusing to write codeval.txt into the submission (possible symlink attack)"
                 else:
-                    shutil.copy(codeval_file, os.path.join(full_assignment_working_dir, "codeval.txt"))
                     codeval_source_dir = os.path.dirname(codeval_file)
                     with open(codeval_file, "r") as cf:
                         for cf_line in cf:
@@ -559,7 +619,10 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                                 ref_file = parts[1].strip()
                                 src = os.path.join(codeval_source_dir, ref_file)
                                 if os.path.isfile(src):
-                                    shutil.copy(src, os.path.join(full_assignment_working_dir, ref_file))
+                                    _safe_copy_into_tree(
+                                        src,
+                                        os.path.join(full_assignment_working_dir, ref_file),
+                                        submission_dir)
 
                     command = command.replace("SUBMISSIONS", full_assignment_working_dir)
                     info(f"command to execute: {command}")
@@ -579,7 +642,9 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                         info("finished executing docker")
 
         info("writing results")
-        with open(f"{dirpath}/comments.txt", "ab") as fd:
+        # Truncate, don't append: re-running evaluation must replace the prior
+        # result for this submission, not double it up.
+        with open(f"{dirpath}/comments.txt", "wb") as fd:
             fd.write(out)
         info("continuing")
 
@@ -748,11 +813,17 @@ github_repo={github_repo or ''}""", file=fd)
 
         if hasattr(submission, "attachments"):
             for attachment in submission.attachments:
-                fname = attachment.filename
+                # attachment.filename is student-controlled: collapse to a bare
+                # name so it can't traverse out of the dir, and never let it
+                # overwrite one of the tool's control files.
+                fname = os.path.basename(attachment.filename)
+                if fname in ('', '.', '..') or fname in _RESERVED_SUBMISSION_FILES:
+                    warn(f"skipping attachment with reserved/unsafe name {attachment.filename!r} "
+                         f"for student {student_id}")
+                    continue
                 filepath = os.path.join(student_submission_dir, fname)
                 attachment.download(filepath)
-
-            debug(f"Downloaded submission for student {student_id} to {filepath}")
+                debug(f"Downloaded attachment {fname} for student {student_id} to {filepath}")
 
     return submission_dir
 

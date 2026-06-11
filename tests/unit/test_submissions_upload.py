@@ -219,3 +219,44 @@ class TestUploadSubmissionComments:
                                 upload_submission_comments, [base]
                             )
         assert result.exit_code == 0
+        # No submission found: must NOT mark as sent, so a later run retries.
+        sent_file = tmp_path / "CS101" / "HW1" / "42" / "comments.txt.sent"
+        assert not sent_file.exists()
+
+    def test_delete_only_targets_codeval_comments(self, tmp_path):
+        base = self._make_submission_dir(tmp_path)
+        canvas = MagicMock()
+        user = MagicMock()
+        course = MagicMock()
+        course.id = "1"
+        assignment = MagicMock()
+        assignment.id = "2"
+        submission = MagicMock()
+        # Newest comment is a student's question; an older one is the codeval comment.
+        submission.submission_comments = [
+            {"id": "cv", "comment": "codeval: 9/10", "created_at": "2024-01-01T00:00:00Z"},
+            {"id": "student", "comment": "Is test 3 wrong?", "created_at": "2024-02-01T00:00:00Z"},
+        ]
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+
+        with patch("assignment_codeval.submissions.connect_to_canvas",
+                   return_value=(canvas, user)):
+            with patch("assignment_codeval.submissions.get_course", return_value=course):
+                with patch("assignment_codeval.submissions.get_assignment", return_value=assignment):
+                    with patch("assignment_codeval.submissions.get_submissions_by_id",
+                               return_value={"42": submission}):
+                        with patch("assignment_codeval.submissions.write_html_file"):
+                            with patch("assignment_codeval.submissions.upload_file_for_comment",
+                                       return_value=99):
+                                with patch("assignment_codeval.submissions._get_canvas_config",
+                                           return_value=("https://canvas.example.com", "tok")):
+                                    with patch("requests.put", return_value=mock_resp):
+                                        with patch("assignment_codeval.submissions.delete_submission_comment") as mock_del:
+                                            result = CliRunner().invoke(
+                                                upload_submission_comments, [base, "--delete"]
+                                            )
+        assert result.exit_code == 0
+        # Deletes the old codeval comment, never the student's newer question.
+        mock_del.assert_called_once()
+        assert mock_del.call_args.args[-1] == "cv"

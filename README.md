@@ -110,13 +110,13 @@ Codeval files (`.codeval` extension) define how to build, run, and test student 
 | Tag | Meaning | Function |
 |---|---|---|
 | C | Compile Code | Specifies the command to compile the submission code |
-| CTO | Compile Timeout | Timeout in seconds for the compile command to run |
+| CTO | Compile Timeout | Timeout in seconds for the whole evaluation (compile **and** all test cases) to run |
 | T/HT | Test Case | Command to run to test the submission (HT = hidden test) |
 | I/IB/IF | Supply Input | Input for a test case. I adds a newline, IB does not, IF reads from a file |
 | O/OB/OF | Check Output | Expected output. O adds a newline, OB does not, OF reads from a file |
 | E/EB | Check Error | Expected error output. E adds a newline, EB does not |
-| TO | Timeout | Time limit in seconds for a test case (default: 20) |
-| X | Exit Code | Expected exit code for a test case (default: 0) |
+| TO | Timeout | Time limit in seconds for a test case (default: 10) |
+| X | Exit Code | Expected exit code for a test case (not checked unless X is specified) |
 | TEMP | Temp File | Registers a file to be deleted before and after the next test run |
 | CF | Check Function | Checks that a function is used in the submission |
 | NCF | Check Not Function | Checks that a function is **not** used |
@@ -124,7 +124,6 @@ Codeval files (`.codeval` extension) define how to build, run, and test student 
 | PRINT | Print Label | Prints a label/message to stdout |
 | CMP | Compare | Compares two files |
 | Z | Download Zip | Zip files to download from Canvas for test cases |
-| SS | Start Server | Starts a server with timeout and kill-timeout settings |
 
 #### Assignment Description Macros
 

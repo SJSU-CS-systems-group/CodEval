@@ -382,3 +382,47 @@ class TestRunEvaluationViaCliRunner:
         runner = CliRunner()
         result = runner.invoke(run_evaluation, [str(codeval)], catch_exceptions=False)
         assert result.exit_code == 0
+
+    def test_empty_of_does_not_pass_wrong_output(self, tmp_path):
+        """An empty OF expected file must not make a mismatched test pass."""
+        prog = tmp_path / "prog.py"
+        prog.write_text('print("garbage")\n')
+        empty = tmp_path / "empty.txt"
+        empty.write_text("")
+        codeval = tmp_path / "t.codeval"
+        codeval.write_text(f"T python3 {prog}\nOF {empty}\n")
+        runner = CliRunner()
+        result = runner.invoke(run_evaluation, [str(codeval)])
+        assert result.exit_code != 0
+        assert "FAILED" in result.output
+
+    def test_of_does_not_leak_render_limit_to_later_tests(self, tmp_path):
+        """A small OF file must not shrink output checking for subsequent tests."""
+        empty = tmp_path / "empty.txt"
+        empty.write_text("")
+        silent = tmp_path / "silent.py"
+        silent.write_text("")  # prints nothing -> matches empty OF
+        wrong = tmp_path / "wrong.py"
+        wrong.write_text('print("definitely not the expected output")\n')
+        codeval = tmp_path / "t.codeval"
+        codeval.write_text(
+            f"T python3 {silent}\nOF {empty}\n"
+            f"T python3 {wrong}\nO expected\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(run_evaluation, [str(codeval)])
+        # Second test has clearly wrong output and must fail.
+        assert result.exit_code != 0
+        assert "FAILED" in result.output
+
+    def test_tab_separated_tag_is_not_dropped(self, tmp_path):
+        """A tab between a tag and its value must still be parsed, not skipped."""
+        prog = tmp_path / "prog.py"
+        prog.write_text('print("hi")\n')
+        codeval = tmp_path / "t.codeval"
+        # Literal tab between T and the command, and between O and its value.
+        codeval.write_text(f"T\tpython3 {prog}\nO\thi\n")
+        runner = CliRunner()
+        result = runner.invoke(run_evaluation, [str(codeval)], catch_exceptions=False)
+        assert "Test case 1 of 1" in result.output
+        assert result.exit_code == 0

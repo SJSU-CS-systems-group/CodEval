@@ -246,7 +246,9 @@ class TestCreateAssignmentCommand:
         spec = self._make_spec(tmp_path, extra_content="Z support.zip\n")
         result, _ = self._invoke_dryrun(tmp_path, spec)
         assert result.exit_code == 0
-        assert "support.zip" in ca_mod.zip_files
+        # Zip is resolved to an absolute path relative to the spec's directory.
+        expected = os.path.join(os.path.dirname(os.path.abspath(spec)), "support.zip")
+        assert expected in ca_mod.zip_files
 
     def test_dryrun_group_not_found_exits(self, tmp_path):
         spec = self._make_spec(tmp_path)
