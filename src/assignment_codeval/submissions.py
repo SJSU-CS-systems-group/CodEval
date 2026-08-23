@@ -557,12 +557,12 @@ def _github_fetch_problem(dirpath, submission_dir):
             return None
         out = (b"your repository was cloned, but the commit digest you submitted in Canvas\n"
                b"could not be checked out, so your submission was not graded. Make sure you\n"
-               b"have pushed your commits and submitted the digest of your final pushed\n"
-               b"commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
+               b"have pushed your commits and submitted only the digest of your final\n"
+               b"pushed commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
     else:
         out = (b"your submission could not be fetched from GitHub, so it was not graded.\n"
-               b"Make sure you have pushed your commits and submitted the digest of your\n"
-               b"final commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
+               b"Make sure you have pushed your commits and submitted only the digest of\n"
+               b"your final commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
     try:
         with open(os.path.join(dirpath, "comments.txt"), "rb") as f:
             prior = f.read()
