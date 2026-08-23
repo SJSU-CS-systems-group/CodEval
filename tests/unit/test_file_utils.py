@@ -66,6 +66,23 @@ class TestUnzip:
         file_mode = os.stat(str(extracted)).st_mode
         assert file_mode & stat.S_IXUSR  # owner execute bit
 
+    def test_zip_slip_chmod_does_not_escape_dir(self, tmp_path):
+        """A '../' member must not cause chmod on a file outside the extract dir."""
+        outside = tmp_path / "outside.txt"
+        outside.write_text("do not touch")
+        outside.chmod(0o600)
+        zip_path = tmp_path / "evil.zip"
+        with zipfile.ZipFile(str(zip_path), "w") as zf:
+            info = zipfile.ZipInfo("../outside.txt")
+            info.external_attr = (0o777 << 16)
+            zf.writestr(info, "pwned")
+        dest = tmp_path / "out"
+        dest.mkdir()
+        unzip(str(zip_path), str(dest))
+        # The pre-existing file outside the extract dir keeps its mode.
+        assert stat.S_IMODE(os.stat(str(outside)).st_mode) == 0o600
+        assert outside.read_text() == "do not touch"
+
 
 class TestDownloadAttachment:
     def _attachment(self, name, url):
@@ -96,17 +113,33 @@ class TestDownloadAttachment:
                                          self._attachment("out.txt", "http://x.com/f"))
         assert (tmp_path / "subdir" / "out.txt").exists()
 
-    def test_error_logged_on_bad_status(self, tmp_path):
+    def test_raises_and_writes_nothing_on_bad_status(self, tmp_path):
         resp = MagicMock()
         resp.__enter__ = lambda s: s
         resp.__exit__ = MagicMock(return_value=False)
         resp.status_code = 404
-        resp.iter_content.return_value = [b""]
+        resp.iter_content.return_value = [b"<html>not found</html>"]
         with patch("requests.get", return_value=resp):
-            with patch("assignment_codeval.file_utils.error") as mock_error:
+            with pytest.raises(EnvironmentError):
                 download_attachment(str(tmp_path),
                                     self._attachment("f.txt", "http://x.com/f"))
-        mock_error.assert_called_once()
+        # The error page body must not be saved as if it were the attachment.
+        assert not (tmp_path / "f.txt").exists()
+
+    def test_traversal_filename_is_collapsed_to_basename(self, tmp_path):
+        (tmp_path / "safe").mkdir()
+        resp = MagicMock()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        resp.status_code = 200
+        resp.iter_content.return_value = [b"x"]
+        with patch("requests.get", return_value=resp):
+            result = download_attachment(str(tmp_path / "safe"),
+                                         self._attachment("../../evil.txt", "http://x.com/f"))
+        # Must stay inside the target directory, not escape via "..".
+        assert result == str(tmp_path / "safe" / "evil.txt")
+        assert (tmp_path / "safe" / "evil.txt").exists()
+        assert not (tmp_path / "evil.txt").exists()
 
 
 class TestSetAcls:

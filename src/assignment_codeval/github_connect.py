@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 from time import sleep
 
@@ -8,6 +9,27 @@ import click
 from assignment_codeval.commons import error, info
 
 HEX_DIGITS = "0123456789abcdefABCDEF"
+
+
+def _is_safe_repo_url(url):
+    """Reject repo URLs that git would treat as an option or a code-executing transport.
+
+    A clone URL is partly derived from a student-controlled GitHub id, so a value
+    beginning with '-' (argument injection) or using git's ext::/file::/fd:: transport
+    helpers (arbitrary command execution) must never reach `git clone`.
+    """
+    if not url or url.startswith('-'):
+        return False
+    authority = url.split('/', 1)[0]
+    # ext::sh -c ... and friends use a "<helper>::" prefix before the first slash.
+    if '::' in authority:
+        return False
+    # Require a recognized remote form: scheme://... or scp-like git@host:path.
+    if re.match(r'^(https?|git|ssh)://', url, re.IGNORECASE):
+        return True
+    if re.match(r'^[\w.-]+@[\w.-]+:', url):
+        return True
+    return False
 
 
 def _read_metadata(ssid_dir):
@@ -22,6 +44,22 @@ def _read_metadata(ssid_dir):
                     key, value = line.split('=', 1)
                     metadata[key] = value
     return metadata
+
+
+def _read_desired_commit(content_path):
+    """Return the validated (hex) commit hash from content.txt, or None.
+
+    content.txt holds the commit the student submitted, possibly wrapped in HTML
+    tags/entities from Canvas; strip those and accept it only if it is all hex.
+    """
+    if not os.path.exists(content_path):
+        return None
+    with open(content_path, "r") as cfd:
+        content = re.sub(r"<.*?>", "", cfd.readline().strip()).strip()
+        content = re.sub(r"&[a-z]+;", "", content).strip()
+    if content and all(c in HEX_DIGITS for c in content):
+        return content
+    return None
 
 
 @click.command()
@@ -65,8 +103,21 @@ def _setup_repos_for_assignment(assignment_path, clone_delay):
         submission_path = os.path.join(ssid_dir, "submission")
 
         if os.path.exists(submission_path):
-            info(f"skipping {ssid_dir}, repo already exists at {submission_path}")
-            continue
+            # A clone already exists. If the student resubmitted a new commit,
+            # the old checkout would grade the wrong attempt — re-clone in that
+            # case. If we can't determine the desired commit, leave it as-is.
+            desired_commit = _read_desired_commit(content_path)
+            recorded_commit = None
+            if os.path.exists(success_path):
+                with open(success_path, "r") as sfd:
+                    recorded_commit = sfd.readline().strip()
+            if not desired_commit or recorded_commit == desired_commit:
+                info(f"skipping {ssid_dir}, repo already at {recorded_commit or 'existing checkout'}")
+                continue
+            info(f"re-cloning {ssid_dir}: checked-out {recorded_commit} != submitted {desired_commit}")
+            # Guard against removing anything but the clone directory.
+            if os.path.basename(submission_path.rstrip("/")) == "submission":
+                shutil.rmtree(submission_path)
 
         metadata = _read_metadata(ssid_dir)
         repo_url = metadata.get('github_repo', '')
@@ -76,20 +127,22 @@ def _setup_repos_for_assignment(assignment_path, clone_delay):
 
         click.echo(f"Setting up repo for {ssid_dir}")
 
+        if not _is_safe_repo_url(repo_url):
+            error(f"❌ refusing to clone unsafe repo url for {ssid}: {repo_url!r}")
+            with open(result_path, "w") as fd:
+                print(f"❌ refusing to clone unsafe repo url: {repo_url}", file=fd)
+            continue
+
         with open(result_path, "w") as fd:
             # Read commit hash from content.txt
-            content = None
-            if os.path.exists(content_path):
-                with open(content_path, "r") as cfd:
-                    content = re.sub(r"<.*?>", "", cfd.readline().strip()).strip()
-                    content = re.sub(r"&[a-z]+;", "", content).strip()
-            if not content or not all(c in HEX_DIGITS for c in content):
-                print(f"❌ an invalid git digest was found: {content}", file=fd)
+            content = _read_desired_commit(content_path)
+            if not content:
+                print(f"❌ an invalid git digest was found in {content_path}", file=fd)
                 continue
 
             click.echo(f"Cloning {repo_url} to {ssid_dir}")
             print(f"cloning {repo_url}", file=fd)
-            rc = subprocess.run(['git', 'clone', repo_url, submission_path], stdout=fd, stderr=subprocess.STDOUT)
+            rc = subprocess.run(['git', 'clone', '--', repo_url, submission_path], stdout=fd, stderr=subprocess.STDOUT)
             if rc.returncode != 0:
                 error(f"❌ error {rc.returncode} connecting to github repo for {ssid} using {repo_url}")
                 continue

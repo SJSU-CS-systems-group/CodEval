@@ -95,7 +95,7 @@ def files_resolver(filename):
             if not matches:
                 warn(f"could not find {filename} in {z}")
             elif len(matches) > 1:
-                warn("found multiple matches for {filename} in {z}: {matches}")
+                warn(f"found multiple matches for {filename} in {z}: {matches}")
             if matches:
                 zfname = matches[0]
                 with TemporaryDirectory("ce") as tmpdir:
@@ -115,7 +115,9 @@ def files_resolver(filename):
 @click.option("--verbose/--no-verbose", default=False, show_default=True, help="Verbose actions")
 @click.option("--group_name", default="Assignments", show_default=True,
               help="Group name in which assignments needs to be created.")
-def create_assignment(dryrun, verbose, course_name, group_name, specname, extra):
+@click.option("--active/--inactive", default=True, show_default=True,
+              help="Only look at active courses.")
+def create_assignment(dryrun, verbose, course_name, group_name, specname, extra, active):
     """
         Create the assignment in the given course.
     """
@@ -128,7 +130,7 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
     (canvas, user) = connect_to_canvas()
 
     try:
-        course = get_course(canvas, course_name)
+        course = get_course(canvas, course_name, is_active=active)
     except Exception as e:
         errorWithException(f'get_course api failed with following error : {e}')
     else:
@@ -152,16 +154,17 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
         canvas_folder = get_assignment_subfolder(course, codeval_folder, assign_name_early)
     if extra:
         upload_assignment_files(canvas_folder, extra)
-    # find zipfiles in spec
+    # find zipfiles in spec; resolve them relative to the spec directory so the
+    # command works when run from any working directory
+    spec_dir = os.path.dirname(os.path.abspath(specname))
     with open(specname) as f:
         for line in f:
             if line.startswith("Z "):
-                zipfile = line[2:].strip()
-                if zipfile not in zip_files:
-                    zip_files.append(zipfile)
+                zip_name = os.path.join(spec_dir, line[2:].strip())
+                if zip_name not in zip_files:
+                    zip_files.append(zip_name)
 
     # Extract FILE macros and upload local files that exist
-    spec_dir = os.path.dirname(os.path.abspath(specname))
     file_macros = extract_file_macros(specname)
     for filename in file_macros:
         if filename not in file_dict:

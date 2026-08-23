@@ -38,7 +38,8 @@ def format_comment_preview(comment: str, prefix: str) -> str:
     Returns:
         Formatted preview string
     """
-    # Strip the prefix
+    # Strip the prefix (stored comments use the rstripped prefix + newline)
+    prefix = prefix.rstrip()
     text = comment[len(prefix):] if comment.startswith(prefix) else comment
     lines = text.strip().split('\n')
 
@@ -183,7 +184,10 @@ def recent_comments(course_name, active, time_period, codeval_prefix, verbose, s
                 codeval_comments = []
                 for comment in comments:
                     comment_text = comment.get("comment", "")
-                    if not comment_text.startswith(codeval_prefix):
+                    # Stored comments begin with the rstripped prefix + newline
+                    # (see upload_submission_comments), so match without the
+                    # trailing space the default prefix carries.
+                    if not comment_text.startswith(codeval_prefix.rstrip()):
                         continue
 
                     created_at_str = comment.get("createdAt", "")

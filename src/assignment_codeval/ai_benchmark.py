@@ -75,8 +75,10 @@ def extract_assignment_from_codeval(codeval_path: str) -> tuple[str, str, str]:
     with open(codeval_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Extract content between ASSIGNMENT START / CRT_HW START and ASSIGNMENT END / CRT_HW END
-    match = re.search(r"(?:ASSIGNMENT START|CRT_HW START) \S+\n(.*?)(?:ASSIGNMENT END|CRT_HW END)", content, re.DOTALL)
+    # Extract content between ASSIGNMENT START / CRT_HW START and ASSIGNMENT END / CRT_HW END.
+    # The title after the marker may contain spaces (e.g. "CRT_HW START Place Boats")
+    # or be absent entirely, so match the rest of the marker line, not a single token.
+    match = re.search(r"(?:ASSIGNMENT START|CRT_HW START)[^\n]*\n(.*?)(?:ASSIGNMENT END|CRT_HW END)", content, re.DOTALL)
     if match:
         description = match.group(1).strip()
     else:
@@ -223,10 +225,17 @@ def call_openai(model_id: str, prompt: str, api_key: str) -> Optional[str]:
     try:
         client = openai.OpenAI(api_key=api_key)
 
+        # Reasoning models (o1/o3/o4 families, gpt-5) reject `max_tokens` and
+        # require `max_completion_tokens` instead.
+        if model_id.startswith(("o1", "o3", "o4", "gpt-5")):
+            token_kwargs = {"max_completion_tokens": 8192}
+        else:
+            token_kwargs = {"max_tokens": 8192}
+
         response = client.chat.completions.create(
             model=model_id,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=8192,
+            **token_kwargs,
         )
 
         return response.choices[0].message.content

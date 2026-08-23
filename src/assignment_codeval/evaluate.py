@@ -3,10 +3,10 @@
 import ast
 import os
 import re
+import signal
 import subprocess
 import sys
 import traceback
-import threading
 import time
 
 import click
@@ -295,6 +295,22 @@ def _is_function_used(function_name, files, allow_regex_fallback=True):
     return False
 
 
+def _resolve_function_check_files():
+    """Derive source files for a CF/NCF tag that gave no explicit filenames.
+
+    Source files come from the most recent compile command. Commands that don't
+    name their sources (e.g. ``make``) yield nothing, in which case the check
+    cannot be trusted, so print a visible warning rather than silently passing a
+    forbidden-function ban or failing a required-function check for everyone.
+    """
+    files = _extract_source_files_from_compile(last_compile_command)
+    if not files:
+        print(f"    WARNING: could not determine source files from compile command "
+              f"'{last_compile_command}'; the function-usage check is unreliable. "
+              f"List the source file(s) explicitly after the function name in the CF/NCF tag.")
+    return files
+
+
 def check_function(args):
     """Will be followed by a function name and an optional list of files to check to ensure that
     the function is used by one of those files.
@@ -323,7 +339,7 @@ def check_function(args):
     if not files:
         # No filename provided — derive source files from the compile command and
         # disable the regex fallback (compiled-artifact check only).
-        files = _extract_source_files_from_compile(last_compile_command)
+        files = _resolve_function_check_files()
         if _is_function_used(function_name, files, allow_regex_fallback=False):
             print(f"Used {function_name} PASSED")
         else:
@@ -457,7 +473,7 @@ def check_not_function(args):
     if not files:
         # No filename provided — derive source files from the compile command and
         # disable the regex fallback (compiled-artifact check only).
-        files = _extract_source_files_from_compile(last_compile_command)
+        files = _resolve_function_check_files()
         used = _is_function_used(function_name, files, allow_regex_fallback=False)
     else:
         used = _is_function_used(function_name, files)
@@ -683,7 +699,6 @@ def check_output_file(output_file):
     Returns:
         None
     """
-    output_length(os.path.getsize(output_file)) 
     with open(output_file, "r") as infile:
         output_lines = infile.readlines()
         
@@ -773,7 +788,7 @@ def _post_test_temp_cleanup():
 
 
 def timeout(timeout_sec):
-    """Specifies the time limit in seconds for a test case to run. Defaults to 20 seconds.
+    """Specifies the time limit in seconds for a test case to run. Defaults to 10 seconds.
 
     Arguments:
         timeout_sec: time limit in seconds for a test case to run
@@ -799,7 +814,9 @@ def output_length(length):
 
 
 def exit_code(test_case_exit_code):
-    """Specifies the expected exit code for a test case. Defaults to zero.
+    """Specifies the expected exit code for a test case.
+
+    If no X tag is given, the exit code is not checked.
 
     Arguments:
         test_case_exit_code: the expected exit code for a test case
@@ -809,48 +826,6 @@ def exit_code(test_case_exit_code):
     """
     global expected_exit_code
     expected_exit_code = int(test_case_exit_code)
-
-
-def start_server(timeout_sec, kill_timeout_sec, *server_cmd):
-    """Command containing timeout (wait until server starts), kill timeout (wait to kill the server),
-    and the command to start a server
-
-    Arguments:
-        timeout_sec: timeout in seconds to wait for server to start
-        kill_timeout_sec: timeout in seconds to wait until killing the server
-        server_cmd: command to run to start the server
-
-    Returns:
-        None
-    """
-
-    print(
-        f'Starting server with command: {" ".join(server_cmd)} and sleeping for: {timeout_sec}. Will kill server '
-        f'after {kill_timeout_sec} seconds.'
-    )
-
-    # Send output to compile log in background
-    with open(get_testing_path("compilelog"), "w") as outfile:
-        server_popen = subprocess.Popen(
-            server_cmd, shell=True, stdout=outfile, stderr=outfile, text=True
-        )
-
-    print(f"Server pid: {server_popen.pid}. Sleeping for {timeout_sec} seconds.")
-    # Block for timeout_sec so that server can start
-    time.sleep(float(timeout_sec))
-
-    # Kill the server after the timeout
-    def kill_server(pid):
-        print(f"Killing {pid}")
-        subprocess.Popen(
-            ["kill", "-9", f"{pid}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-    kill_timer = threading.Timer(
-        float(kill_timeout_sec), kill_server, *[server_popen.pid]
-    )
-    kill_timer.daemon = True
-    kill_timer.start()
 
 
 """
@@ -883,7 +858,6 @@ tag_func_map = {
     "TO": timeout,
     "OLEN": output_length,
     "X": exit_code,
-    "SS": start_server,
     "TEMP": register_temp_file,
 }
 
@@ -921,8 +895,10 @@ def parse_tags(tags: list[str]):
         None
     """
     # Pattern matches: TAG arguments (arguments required)
-    # Use single space separator to preserve leading whitespace in values
-    tag_pattern = r"([A-Z_]+) (.*)"
+    # A single space or tab separates the tag from its value; any further
+    # whitespace is preserved as part of the value. Accepting a tab here keeps a
+    # tab-separated tag (e.g. "T\t./prog") from being silently dropped.
+    tag_pattern = r"([A-Z_]+)[ \t](.*)"
     # Pattern for tag with optional arguments
     tag_only_pattern = r"([A-Z_]+)\s*$"
 
@@ -1173,7 +1149,8 @@ def check_test():
         get_testing_path("youroutput"), "w"
     ) as youroutput, open(get_testing_path("yourerror"), "w") as yourerror:
         test_exec = subprocess.Popen(
-            test_args, shell=True, stdin=fileinput, stdout=youroutput, stderr=yourerror
+            test_args, shell=True, stdin=fileinput, stdout=youroutput, stderr=yourerror,
+            start_new_session=True,
         )
 
     # Timeout handling
@@ -1183,11 +1160,21 @@ def check_test():
     except subprocess.TimeoutExpired:
         print(f"Took more than {timeout_val} seconds to run. FAIL")
         passed = False
+        # Kill the whole process group so orphaned children (the shell spawned
+        # by shell=True and anything it launched) don't keep running.
+        try:
+            os.killpg(os.getpgid(test_exec.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            test_exec.kill()
+        test_exec.communicate()
 
     # Find files touched by student's program
     touched_files = _find_touched_files(pre_run_timestamp)
 
-    # Difflog handling
+    # Difflog handling. Pass/fail is decided by the diff exit status (0 == files
+    # identical), NOT by how much of the diff we render: OLEN/OF control only the
+    # amount of rendered text and must never be able to hide a real mismatch.
+    output_differs = False
     with open(get_testing_path("difflog"), "w") as outfile:
         diff_popen = subprocess.Popen(
             ["diff", "-U1", "-a",
@@ -1195,6 +1182,8 @@ def check_test():
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         raw_output, _ = diff_popen.communicate()
+        if diff_popen.returncode != 0:
+            output_differs = True
         outfile.write(_render_diff_output(raw_output[:output_length_limit]))
 
     # Append to difflog second time around
@@ -1205,14 +1194,17 @@ def check_test():
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         raw_output, _ = diff_popen.communicate()
+        if diff_popen.returncode != 0:
+            output_differs = True
         outfile.write(_render_diff_output(raw_output[:output_length_limit]))
 
     # Now read all the lines to accumulate both diffs
     with open(get_testing_path("difflog"), "r") as infile:
         diff_lines = infile.readlines()
 
-    if len(diff_lines):
+    if output_differs:
         passed = False
+    if len(diff_lines):
         parse_diff(diff_lines, TESTING_DIR)
 
     # Exit code handling
@@ -1354,7 +1346,9 @@ def run_evaluation(codeval_file):
                 continue
             if in_crt_hw_block:
                 continue
-            parts = testcase.split(" ", 1)
+            parts = stripped.split(None, 1)
+            if not parts:
+                continue
             tag = parts[0]
             if tag == "T" or tag == "HT" or tag == "TCMD":
                 test_case_total += 1

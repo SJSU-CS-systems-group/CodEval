@@ -140,8 +140,9 @@ def mdToHtml(file_name, files_resolver=None):
                     compile_command = line[2:].strip()
                 if past_crt_hw and line.startswith('Z '):
                     zip_paths.append(line[2:].strip())
-                if 'EXMPLS ' in line:
-                    numOfSampleTC = int(line[7:])
+                exmpls_match = re.search(r'EXMPLS\s+([0-9]+)', line)
+                if exmpls_match:
+                    numOfSampleTC = int(exmpls_match.group(1))
                 text = text + line
         spec_dir = os.path.dirname(os.path.abspath(file_name))
 
@@ -158,7 +159,10 @@ def mdToHtml(file_name, files_resolver=None):
             for zf in zip_archives:
                 zf.close()
 
-        assignment = re.sub('EXMPLS [0-9]+', samples, assignment)
+        # Use a function replacement so backslash sequences in the sample data
+        # (e.g. "\d" or "\1" in expected output) are inserted literally rather
+        # than interpreted as regex escapes.
+        assignment = re.sub('EXMPLS [0-9]+', lambda m: samples, assignment)
         if compile_command:
             assignment = assignment.replace('COMPILE', compile_command)
         # Handle FILE macros in two passes:
