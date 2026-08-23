@@ -115,7 +115,9 @@ def files_resolver(filename):
 @click.option("--verbose/--no-verbose", default=False, show_default=True, help="Verbose actions")
 @click.option("--group_name", default="Assignments", show_default=True,
               help="Group name in which assignments needs to be created.")
-def create_assignment(dryrun, verbose, course_name, group_name, specname, extra):
+@click.option("--active/--inactive", default=True, show_default=True,
+              help="Only look at active courses.")
+def create_assignment(dryrun, verbose, course_name, group_name, specname, extra, active):
     """
         Create the assignment in the given course.
     """
@@ -128,7 +130,7 @@ def create_assignment(dryrun, verbose, course_name, group_name, specname, extra)
     (canvas, user) = connect_to_canvas()
 
     try:
-        course = get_course(canvas, course_name)
+        course = get_course(canvas, course_name, is_active=active)
     except Exception as e:
         errorWithException(f'get_course api failed with following error : {e}')
     else:
