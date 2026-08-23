@@ -1,5 +1,7 @@
 import os
+import posixpath
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -16,6 +18,7 @@ import requests
 
 from assignment_codeval.canvas_utils import connect_to_canvas, get_course, get_courses, get_assignment
 from assignment_codeval.commons import debug, error, info, warn, despace
+from assignment_codeval.github_connect import _read_desired_commit
 
 # Bookkeeping files the tool writes into each student directory. A student must
 # never be able to clobber these via an attachment filename — in particular
@@ -514,6 +517,64 @@ def upload_submission_comments(submissions_dir, codeval_prefix, delete):
                     warn(f"no submission found for {student_id} in {course_name}: {assignment_name}")
 
 
+def _github_fetch_problem(dirpath, submission_dir):
+    """For a GitHub submission whose fetch failed, build the student-facing message.
+
+    Returns None when the submission is not GitHub-based (no github_repo in
+    metadata.txt) or when the checkout matches the submitted commit, so the
+    caller proceeds with normal grading.
+
+    Covers both failure shapes: no checkout at all (clone failed, bad digest)
+    and a clone whose gh_success.txt is missing or stale (the submitted commit
+    could not be checked out, e.g. it was never pushed) — grading that tree
+    would silently grade the wrong commit. github-setup-repo leaves its
+    clone/checkout errors (bad digest, failed clone, failed checkout) in
+    comments.txt; include them so the student sees why the fetch failed
+    instead of a misleading complaint about a missing assignment directory.
+    """
+    metadata_path = os.path.join(dirpath, "metadata.txt")
+    has_github_repo = False
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r") as f:
+            has_github_repo = any(
+                line.startswith("github_repo=") and line.split("=", 1)[1].strip()
+                for line in f)
+    if not has_github_repo:
+        return None
+
+    desired = _read_desired_commit(os.path.join(dirpath, "content.txt"))
+    recorded = None
+    try:
+        with open(os.path.join(dirpath, "gh_success.txt"), "r") as f:
+            recorded = f.readline().strip() or None
+    except OSError:
+        pass
+
+    if os.path.isdir(submission_dir):
+        # Mirror github-setup-repo: a recorded checkout is good if it matches
+        # the submitted digest, or if the digest is unreadable (leave as-is).
+        if recorded and (not desired or recorded == desired):
+            return None
+        out = (b"your repository was cloned, but the commit digest you submitted in Canvas\n"
+               b"could not be checked out, so your submission was not graded. Make sure you\n"
+               b"have pushed your commits and submitted the digest of your final pushed\n"
+               b"commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
+    else:
+        out = (b"your submission could not be fetched from GitHub, so it was not graded.\n"
+               b"Make sure you have pushed your commits and submitted the digest of your\n"
+               b"final commit (the 40-character output of `git rev-parse HEAD`) in Canvas.\n")
+    try:
+        with open(os.path.join(dirpath, "comments.txt"), "rb") as f:
+            prior = f.read()
+    except OSError:
+        prior = b""
+    # Include only clone logs written by github-setup-repo, never the result
+    # of a previous evaluation run (which would nest on re-runs).
+    if prior.startswith((b"cloning", "❌".encode())):
+        out += b"\nDetails of the failed fetch:\n" + prior
+    return out
+
+
 @click.command()
 @click.argument('codeval_dir', metavar="CODEVAL_DIR", required=False)
 @click.option("--submissions-dir", help="directory containing submissions COURSE/ASSIGNMENT/STUDENT_ID",
@@ -558,6 +619,18 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 
         with open(os.path.join(dirpath, "codeval_path.txt"), "w") as f:
             f.write(os.path.abspath(codeval_file))
+
+        # A GitHub submission with no checkout, or a checkout that isn't the
+        # submitted commit, means the fetch failed (bad digest, failed clone
+        # or checkout). Say that, rather than falling through to a misleading
+        # "<dir> does not exist" message or grading the wrong commit.
+        fetch_failure = _github_fetch_problem(dirpath, submission_dir)
+        if fetch_failure is not None:
+            info("writing results")
+            with open(f"{dirpath}/comments.txt", "wb") as fd:
+                fd.write(fetch_failure)
+            info("continuing")
+            continue
 
         # First pass: get CTO, CD tags, and collect Z files (don't extract yet)
         compile_timeout = 20
@@ -620,7 +693,16 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                                 os.chmod(os.path.join(dest_dir, f.filename), perms)
 
         if not move_to_next_submission:
-            command = raw_command.replace("EVALUATE", "cd /submissions 2>/dev/null || true; assignment-codeval run-evaluation codeval.txt")
+            # Mount the whole submission and cd to the working directory
+            # inside the container: mounting only the working directory would
+            # hide the repository's .git (which lives at the submission root)
+            # from git-based tests.
+            container_working_dir = posixpath.normpath(
+                posixpath.join("/submissions", assignment_working_dir.replace("\\", "/")))
+            command = raw_command.replace(
+                "EVALUATE",
+                f"cd {shlex.quote(container_working_dir)} 2>/dev/null || true; "
+                "assignment-codeval run-evaluation codeval.txt")
 
             with TemporaryDirectory("cedir", dir="/var/tmp") as link_dir:
                 submission_link = os.path.join(link_dir, "submissions")
@@ -647,7 +729,7 @@ def evaluate_submissions(codeval_dir, submissions_dir):
                                         os.path.join(full_assignment_working_dir, ref_file),
                                         submission_dir)
 
-                    command = command.replace("SUBMISSIONS", full_assignment_working_dir)
+                    command = command.replace("SUBMISSIONS", submission_link)
                     info(f"command to execute: {command}")
                     p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     try:
