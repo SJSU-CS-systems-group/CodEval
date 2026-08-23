@@ -3,6 +3,7 @@ import re
 import shutil
 import subprocess
 import time
+import unicodedata
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -177,18 +178,40 @@ def find_codeval_file(codeval_dir, assignment_name):
     return None
 
 
-def get_github_repo_url(course, user_id, config_parser, github_field="github"):
+def github_safe_name(name):
+    """a person's name as a valid github repo-name fragment.
+
+    accented letters lose their accents, anything github won't take in a
+    repo name becomes "-", runs collapse, and the edges are trimmed.
+    Matches the repo naming used by gh-class-sak.
+    """
+    ascii_name = unicodedata.normalize("NFKD", name)
+    ascii_name = "".join(ch for ch in ascii_name if not unicodedata.combining(ch))
+    safe = "".join(ch if (ch.isascii() and ch.isalnum()) or ch in "._-" else "-"
+                   for ch in ascii_name)
+    while "--" in safe:
+        safe = safe.replace("--", "-")
+    return safe.strip("-._") or "x"
+
+
+def get_github_repo_url(course, user_id, config_parser, github_field="github", from_name=None):
     """
     Get the GitHub repo URL for a user in a course.
 
     Returns the repo URL string if found, or None if GitHub is not configured
     for this course or the user doesn't have a GitHub link in their profile.
+
+    If from_name is given, the repo URL is built from that name using
+    gh-class-sak's repo naming instead of the profile's GitHub link.
     """
     gh_key = course.name.replace(":", "").replace("=", "")
     if 'GITHUB' not in config_parser or gh_key not in config_parser['GITHUB']:
         return None
 
     gh_repo_prefix = config_parser['GITHUB'][gh_key]
+
+    if from_name is not None:
+        return f"{gh_repo_prefix}-{github_safe_name(from_name)}.git"
 
     try:
         user = course.get_user(user_id)
@@ -664,8 +687,11 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 @click.option("--codeval-prefix", help="prefix for codeval comments", default="codeval: ", show_default=True)
 @click.option("--include-empty", is_flag=True, help="include empty submissions")
 @click.option("--for-name", help="only download submissions for this student name")
+@click.option("--repo-from-name", is_flag=True,
+              help="construct the github repo url from the student name (gh-class-sak naming) "
+                   "instead of the github link in the canvas profile")
 def download_submissions(course_name, assignment_name, active, until_window, target_dir, include_commented,
-                         codeval_prefix, include_empty, uncommented_for, for_name):
+                         codeval_prefix, include_empty, uncommented_for, for_name, repo_from_name):
     """
     Download submissions for a given assignment in a course from Canvas.
 
@@ -721,7 +747,7 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
                 info(f"downloading submissions for {course.name}: {assignment.name}")
                 _download_assignment_submissions(
                     canvas, course, assignment, target_dir, include_commented, codeval_prefix,
-                    include_empty, uncommented_for, for_name
+                    include_empty, uncommented_for, for_name, repo_from_name
                 )
         return
 
@@ -729,12 +755,12 @@ def download_submissions(course_name, assignment_name, active, until_window, tar
     assignment = get_assignment(course, assignment_name)
     _download_assignment_submissions(
         canvas, course, assignment, target_dir, include_commented, codeval_prefix,
-        include_empty, uncommented_for, for_name
+        include_empty, uncommented_for, for_name, repo_from_name
     )
 
 
 def _download_assignment_submissions(canvas, course, assignment, target_dir, include_commented, codeval_prefix,
-                                     include_empty, uncommented_for, for_name):
+                                     include_empty, uncommented_for, for_name, repo_from_name=False):
     """Download submissions for a single assignment."""
     submission_dir = os.path.join(target_dir, despace(course.name), despace(assignment.name))
     os.makedirs(submission_dir, exist_ok=True)
@@ -781,7 +807,8 @@ def _download_assignment_submissions(canvas, course, assignment, target_dir, inc
         os.makedirs(student_submission_dir, exist_ok=True)
 
         metapath = os.path.join(student_submission_dir, "metadata.txt")
-        github_repo = get_github_repo_url(course, submission.user_id, parser)
+        github_repo = get_github_repo_url(course, submission.user_id, parser,
+                                          from_name=student_name if repo_from_name else None)
         with open(metapath, "w") as fd:
             print(f"""id={student_id}
 name={student_name}

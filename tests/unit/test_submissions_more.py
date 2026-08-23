@@ -8,6 +8,7 @@ from click.testing import CliRunner
 import assignment_codeval.submissions as sub_mod
 from assignment_codeval.submissions import (
     get_github_repo_url,
+    github_safe_name,
     _parse_substitutions_file,
     _apply_substitutions,
     _is_within_tree,
@@ -153,6 +154,39 @@ class TestGetGithubRepoUrl:
         result = get_github_repo_url(course, 1, config)
         assert result == "https://github.com/org/cs101-alice.git"
 
+    def test_from_name_builds_url_without_profile(self):
+        course = self._course("CS101")
+        config = self._config("CS101", "https://github.com/org/cs101")
+        result = get_github_repo_url(course, 1, config, from_name="José García")
+        assert result == "https://github.com/org/cs101-Jose-Garcia.git"
+        course.get_user.assert_not_called()
+
+    def test_from_name_still_requires_github_config(self):
+        course = self._course("CS101")
+        config = ConfigParser()
+        assert get_github_repo_url(course, 1, config, from_name="Alice") is None
+
+
+# ---------------------------------------------------------------------------
+# github_safe_name
+# ---------------------------------------------------------------------------
+
+class TestGithubSafeName:
+    def test_plain_name_spaces_become_dashes(self):
+        assert github_safe_name("John Doe") == "John-Doe"
+
+    def test_accents_are_stripped(self):
+        assert github_safe_name("José García") == "Jose-Garcia"
+
+    def test_runs_collapse_and_edges_trim(self):
+        assert github_safe_name("  A  B  ") == "A-B"
+
+    def test_allowed_punctuation_kept(self):
+        assert github_safe_name("mary.jane_o-connor") == "mary.jane_o-connor"
+
+    def test_empty_falls_back_to_x(self):
+        assert github_safe_name("!!!") == "x"
+
 
 # ---------------------------------------------------------------------------
 # _parse_substitutions_file
@@ -262,6 +296,44 @@ class TestDownloadSubmissionsCommand:
         assert result.exit_code == 0
         meta = tmp_path / "CS101" / "HW1" / "99" / "metadata.txt"
         assert meta.exists()
+
+    def test_repo_from_name_flag_uses_student_name(self, tmp_path):
+        canvas = MagicMock()
+        user = MagicMock()
+        course = MagicMock()
+        course.name = "CS101"
+        course.id = "42"
+        assignment = MagicMock()
+        assignment.name = "HW1"
+        assignment.id = "10"
+        submission = MagicMock()
+        submission.attempt = 1
+        submission.user_id = "99"
+        submission.user = {"name": "José García"}
+        submission.submission_comments = []
+        submission.submitted_at = "2024-01-01T12:00:00Z"
+        submission.late = False
+        submission.body = None
+        del submission.attachments
+        assignment.get_submissions.return_value = [submission]
+
+        repo_lookup = MagicMock(return_value="https://github.com/org/cs101-Jose-Garcia.git")
+        with patch("assignment_codeval.submissions.connect_to_canvas",
+                   return_value=(canvas, user)):
+            with patch("assignment_codeval.submissions.get_course", return_value=course):
+                with patch("assignment_codeval.submissions.get_assignment",
+                           return_value=assignment):
+                    with patch("assignment_codeval.submissions.get_github_repo_url",
+                               repo_lookup):
+                        result = CliRunner().invoke(
+                            download_submissions,
+                            ["CS101", "HW1", "--target-dir", str(tmp_path),
+                             "--repo-from-name"]
+                        )
+        assert result.exit_code == 0
+        assert repo_lookup.call_args.kwargs["from_name"] == "José García"
+        meta = tmp_path / "CS101" / "HW1" / "99" / "metadata.txt"
+        assert "github_repo=https://github.com/org/cs101-Jose-Garcia.git" in meta.read_text()
 
     def test_attachment_cannot_overwrite_control_files(self, tmp_path):
         """A student attachment named SUBSTITUTIONS.txt must not be written (grade forgery)."""
