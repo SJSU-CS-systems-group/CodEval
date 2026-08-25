@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.32
+
+- Escape HTML special characters in generated sample test cases, so expected output like `Usage: ./prog <name>` renders literally instead of being parsed as markup (Canvas stripped such pseudo-tags from assignment descriptions, silently dropping the text)
+
 ## 0.0.31
 
 - Rename `CRT_HW START`/`CRT_HW END` block tags to `ASSIGNMENT START`/`ASSIGNMENT END` (old names still accepted for backwards compatibility)
