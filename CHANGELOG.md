@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.33
+
+- Fix `evaluate-submissions` container mount: mount the whole submission and cd to the working directory inside the container, so the repository's `.git` at the submission root is visible to git-based tests
+- Report GitHub fetch failures (no checkout, or checkout not matching the submitted digest) as fetch failures with the clone/checkout log, instead of a missing assignment directory; prevents silently grading a stale checkout
+- Clarify the fetch-failure comment to say "submit only the digest"
+- Grading image and scripts: register g++-14 as the `c++` compiler in the Docker image; adjust the submission test loop (local deploy lock, clone delay, download cooldown)
+
 ## 0.0.32
 
 - Escape HTML special characters in generated sample test cases, so expected output like `Usage: ./prog <name>` renders literally instead of being parsed as markup (Canvas stripped such pseudo-tags from assignment descriptions, silently dropping the text)
