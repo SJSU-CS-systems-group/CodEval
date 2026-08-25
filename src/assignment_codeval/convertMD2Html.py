@@ -1,6 +1,7 @@
 import os
 import re
 import zipfile
+from html import escape as html_escape
 
 import markdown
 
@@ -21,13 +22,17 @@ _ANSI_STYLES = {
 
 
 def ansi_to_html(text):
-    """Convert ANSI escape codes in text to HTML span tags."""
+    """Convert ANSI escape codes in text to HTML span tags.
+
+    The text parts are HTML-escaped so characters like < and & render
+    literally instead of being parsed as markup.
+    """
     parts = re.split(r'\x1b\[([\d;]*)m', text)
     result = []
     open_spans = 0
     for i, part in enumerate(parts):
         if i % 2 == 0:
-            result.append(part)
+            result.append(html_escape(part, quote=False))
         else:
             codes = part.split(';') if part else ['0']
             if '0' in codes:
@@ -66,47 +71,48 @@ def _read_file_content(filename, spec_dir, zip_archives=None):
 def sampleTestCases(listOfTC, numOfTC, spec_dir=None, zip_archives=None):
     counter = 0
     samples = "<pre><code>"
+    esc = lambda s: html_escape(s, quote=False)
     for line in listOfTC:
         if line.startswith('T ', 0, 2):
             counter = counter + 1
             if counter > numOfTC:
                 break
-            samples = samples + "\n" + "Command to RUN: " + line[2:]
+            samples = samples + "\n" + "Command to RUN: " + esc(line[2:])
         elif line.startswith('IF '):
             filename = line[3:].strip()
             content = _read_file_content(filename, spec_dir, zip_archives)
             if content is not None:
                 samples = samples + "<span style=\"color:green\">" + ansi_to_html(content) + "</span>"
             else:
-                samples = samples + "<span style=\"color:green\">Input from file: " + filename + "\n</span>"
+                samples = samples + "<span style=\"color:green\">Input from file: " + esc(filename) + "\n</span>"
         elif line.startswith('IB '):
-            samples = samples + "<span style=\"color:green\">" + line[3:] + "</span>"
+            samples = samples + "<span style=\"color:green\">" + esc(line[3:]) + "</span>"
         elif line.startswith('I '):
-            samples = samples + "<span style=\"color:green\">" + line[2:] + "</span>"
+            samples = samples + "<span style=\"color:green\">" + esc(line[2:]) + "</span>"
         elif line.startswith('OF '):
             filename = line[3:].strip()
             content = _read_file_content(filename, spec_dir, zip_archives)
             if content is not None:
                 samples = samples + "<span style=\"color:blue\">" + ansi_to_html(content) + "</span>"
             else:
-                samples = samples + "<span style=\"color:blue\">Expected output from file: " + filename + "\n</span>"
+                samples = samples + "<span style=\"color:blue\">Expected output from file: " + esc(filename) + "\n</span>"
         elif line.startswith('OB '):
-            samples = samples + "<span style=\"color:blue\">" + line[3:] + "</span>"
+            samples = samples + "<span style=\"color:blue\">" + esc(line[3:]) + "</span>"
         elif line.startswith('O '):
-            samples = samples + "<span style=\"color:blue\">" + line[2:] + "</span>"
+            samples = samples + "<span style=\"color:blue\">" + esc(line[2:]) + "</span>"
         elif line.startswith('X '):
-            samples = samples + "Expected Exit Code: " + line[2:]
+            samples = samples + "Expected Exit Code: " + esc(line[2:])
         elif line.startswith('EF '):
             filename = line[3:].strip()
             content = _read_file_content(filename, spec_dir, zip_archives)
             if content is not None:
                 samples = samples + "<span style=\"color:Tomato\">" + ansi_to_html(content) + "</span>"
             else:
-                samples = samples + "<span style=\"color:Tomato\">Expected error from file: " + filename + "\n</span>"
+                samples = samples + "<span style=\"color:Tomato\">Expected error from file: " + esc(filename) + "\n</span>"
         elif line.startswith('EB '):
-            samples = samples + "<span style=\"color:Tomato\">" + line[3:] + "</span>"
+            samples = samples + "<span style=\"color:Tomato\">" + esc(line[3:]) + "</span>"
         elif line.startswith('E '):
-            samples = samples + "<span style=\"color:Tomato\">" + line[2:] + "</span>"
+            samples = samples + "<span style=\"color:Tomato\">" + esc(line[2:]) + "</span>"
         else:
             continue
     samples = samples + "</code></pre>"

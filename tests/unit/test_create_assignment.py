@@ -367,6 +367,55 @@ class TestSampleTestCases:
         html = sampleTestCases(examples, 1)
         assert " bare error " in html
 
+
+class TestSampleTestCasesHtmlEscaping:
+    """HTML special characters in test-case text must be escaped, or browsers
+    treat them as markup (e.g. <name> in a usage message silently disappears)."""
+
+    def test_o_tag_escapes_angle_brackets(self):
+        examples = [
+            "T ./addem.exe\n",
+            "O Usage: ./addem.exe <name>\n",
+            "X 1\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "Usage: ./addem.exe &lt;name&gt;" in html
+        assert "<name>" not in html
+
+    def test_t_tag_escapes_angle_brackets(self):
+        examples = [
+            "T ./program < input.txt\n",
+            "O ok\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "./program &lt; input.txt" in html
+
+    def test_i_tag_escapes_ampersand(self):
+        examples = [
+            "T ./program\n",
+            "I Tom & Jerry\n",
+            "O hi\n",
+        ]
+        html = sampleTestCases(examples, 1)
+        assert "Tom &amp; Jerry" in html
+
+    def test_of_file_content_escaped_and_ansi_converted(self, tmp_path):
+        (tmp_path / "expected.txt").write_text("\x1b[31m<b>red</b>\x1b[0m\n")
+        examples = [
+            "T ./program\n",
+            "OF expected.txt\n",
+        ]
+        html = sampleTestCases(examples, 1, str(tmp_path))
+        assert "&lt;b&gt;red&lt;/b&gt;" in html
+        assert '<span style="color:red">' in html
+        assert "<b>" not in html
+
+    def test_ansi_to_html_escapes_text_parts(self):
+        html = ansi_to_html("a <tag> & \x1b[32mgreen <x>\x1b[0m")
+        assert "&lt;tag&gt; &amp;" in html
+        assert "green &lt;x&gt;" in html
+        assert '<span style="color:green">' in html
+
     def test_ob_tag_included_in_html(self):
         """Test that OB tags are included in sample test case HTML output."""
         examples = [
