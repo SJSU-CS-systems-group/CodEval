@@ -27,7 +27,7 @@ rm -rf submissions
 
 setfacl -d -m u:$(whoami):rwX .
 ulimit -f 1000000
-assignment-codeval download-submissions "$COURSE" --active
+assignment-codeval download-submissions "$COURSE" --active --repo-from-name
 assignment-codeval github-setup-repo --clone-delay 4
 assignment-codeval evaluate-submissions
 assignment-codeval upload-submission-comments submissions

@@ -9,6 +9,9 @@ RUN apt-get -y install  g++-14
 RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
 RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
 
+# Go toolchain for Go assignments (Ubuntu 24.04 ships Go 1.22)
+RUN apt-get -y install golang-go
+
 
 # Install maven 3.8.6 for compatibility with jdk 17
 RUN apt-get -y install wget
