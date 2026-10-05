@@ -1,0 +1,21 @@
+[SERVER]
+url=https://sjsu.instructure.com
+token=TTTTTT
+[RUN]
+precommand=
+#command=docker run -u $UID -i -v SUBMISSIONS:/submissions autograder-java bash -c "cd /submissions; EVALUATE"
+# -u runs the evaluation as the invoking user so files written into the
+# submission belong to them; --group-add docker lets it talk to a daemon started
+# with start-dockerd (see the codeval files that need Docker). HOME is set
+# because the uid usually has no passwd entry in the image.
+command=exec docker run -i --pids-limit 4000 --privileged -u $(id -u):$(id -g) --group-add docker -e HOME=/tmp -v dockercache:/var/lib/docker -v SUBMISSIONS:/submissions --rm autograder-java bash -c "ulimit -f 10000000; cd /submissions; EVALUATE"
+[CODEVAL]
+directory=/home/bcr33d/codeval
+[GITHUB]
+PracticeCourse_Reed_1=git@github.com:breed/codeval-practice
+SP26 CMPE-30 Programming Concept and Meth - All Sections=git@github.com:SJSU-Reed/f26-cmpe-30
+SP26 CMPE-142 Sec 01 - Operating Systems=git@github.com:SJSU-Reed/cmpe142
+SP26 CMPE-142 Sec 02 - Operating Systems=git@github.com:SJSU-Reed/cmpe142
+FA26 CMPE-30 Sec 01 - Programming Concept and Meth=git@github.com:SJSU-Reed/f26-cmpe-30
+FA26 CMPE-30 Programming Concept and Meth - All Sections=git@github.com:SJSU-Reed/f26-cmpe-30
+FA26 CMPE-189 Sec 03 - Spcl Topics in CmpE=git@github.com:SJSU-Reed/fa26-cmpe-189-assignments
