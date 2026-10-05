@@ -13,7 +13,7 @@ RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
 RUN apt-get -y install golang-go
 
 # Install docker to test tofu
-RUN apt-get -y install wget docker.io
+RUN apt-get -y install wget curl docker.io
 RUN wget -qO- https://get.opentofu.org/install-opentofu.sh | sh -s -- --install-method deb
 
 
