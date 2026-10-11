@@ -36,6 +36,21 @@ class TestDespace:
     def test_multiple_colons(self):
         assert despace("a:b:c") == "abc"
 
+    def test_slash_replaced(self):
+        assert despace("Simple Pub/Sub") == "Simple_Pub_Sub"
+
+    def test_unsafe_characters_replaced(self):
+        assert despace("a\\b*c?d\"e<f>g|h'i&j;k$l(m)n") == "a_b_c_d_e_f_g_h_i_j_k_l_m_n"
+
+    def test_safe_characters_kept(self):
+        assert despace("CMPE-189_v1.2") == "CMPE-189_v1.2"
+
+    def test_slash_replaced(self):
+        assert despace("Simple Pub/Sub") == "Simple_Pub_Sub"
+
+    def test_backslash_replaced(self):
+        assert despace("a\\b") == "a_b"
+
 
 class TestGetConfig:
     def test_returns_config_instance(self):

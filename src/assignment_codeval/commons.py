@@ -1,14 +1,17 @@
 from typing import NoReturn
 
 import click
+import re
 import time
 import dataclasses
 
 
 def despace(name):
-    # we need to replace spaces with _ to work well with scripts
     # we need to remove the : so that it doesn't mess up docker
-    return name.replace(" ", "_").replace(":","")
+    # (removed rather than replaced to keep existing names stable)
+    # everything else that isn't a word character, . or - becomes _ so the
+    # name is a single path component that is safe in scripts and the shell
+    return re.sub(r"[^\w.-]", "_", name.replace(":", ""))
 
 
 @dataclasses.dataclass(init=True, repr=True, frozen=True)
