@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.34
+
+- `despace` now turns every character other than word characters, `.` and `-` into `_` (`:` is still removed), so an assignment name like `Simple Pub/Sub` becomes the single path component `Simple_Pub_Sub` instead of `Simple_Pub/Sub`, which `evaluate-submissions` misread as assignment `Simple_Pub` and student `Sub` and never graded
+- Grading image and scripts: install Go, curl, docker.io and OpenTofu in the autograder image; add `start-dockerd`, a setuid wrapper that lets an evaluation running as the host user start dockerd inside a `--privileged` container; install the CLI with pipx outside `/root` so evaluations can run as the invoking user (`-u`) and files they write are not owned by root
+- Add `samples/codeval.ini-with-docker-support`
+
 ## 0.0.33
 
 - Fix `evaluate-submissions` container mount: mount the whole submission and cd to the working directory inside the container, so the repository's `.git` at the submission root is visible to git-based tests
