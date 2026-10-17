@@ -5,12 +5,14 @@ RUN apt-get -y install openjdk-21-jdk
 RUN apt-get -y install gawk
 RUN apt-get -y install git
 RUN apt-get -y install iproute2
+# Go toolchain for Go assignments (Ubuntu 24.04 ships Go 1.22)
+# golang-go pulls in g++ (13), so install it before switching g++ to 14
+RUN apt-get -y install golang-go
 RUN apt-get -y install  g++-14
 RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+# The g++ package owns /usr/bin/g++ (-> g++-13), so update-alternatives can't replace it
+RUN ln -sf /etc/alternatives/g++ /usr/bin/g++
 RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100
-
-# Go toolchain for Go assignments (Ubuntu 24.04 ships Go 1.22)
-RUN apt-get -y install golang-go
 
 # Install docker to test tofu
 RUN apt-get -y install wget curl docker.io
