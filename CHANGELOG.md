@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.35
+
+- `evaluate-submissions` no longer stops when extracting a codeval support zip fails; the extraction error is reported for that submission and evaluation moves on to the next one
+- Grading image: make g++ 14 the default `g++` (installing Go had pulled in Ubuntu's g++ 13, which still owned `/usr/bin/g++`)
+
 ## 0.0.34
 
 - `despace` now turns every character other than word characters, `.` and `-` into `_` (`:` is still removed), so an assignment name like `Simple Pub/Sub` becomes the single path component `Simple_Pub_Sub` instead of `Simple_Pub/Sub`, which `evaluate-submissions` misread as assignment `Simple_Pub` and student `Sub` and never graded
