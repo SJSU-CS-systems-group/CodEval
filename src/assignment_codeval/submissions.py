@@ -679,18 +679,22 @@ def evaluate_submissions(codeval_dir, submissions_dir):
 
         # Now extract zip files to the correct working directory
         if not move_to_next_submission:
-            for zf_name in zip_files:
-                with ZipFile(os.path.join(codeval_dir, zf_name)) as zf:
-                    if "SUBSTITUTIONS.txt" in zf.namelist():
-                        with open(os.path.join(dirpath, "SUBSTITUTIONS.txt"), "wb") as out_f:
-                            out_f.write(zf.read("SUBSTITUTIONS.txt"))
-                    for f in zf.infolist():
-                        dest_dir = os.path.join(submission_dir, assignment_working_dir)
-                        zf.extract(f, dest_dir)
-                        if not f.is_dir():
-                            perms = f.external_attr >> 16
-                            if perms:
-                                os.chmod(os.path.join(dest_dir, f.filename), perms)
+            try:
+                for zf_name in zip_files:
+                    with ZipFile(os.path.join(codeval_dir, zf_name)) as zf:
+                        if "SUBSTITUTIONS.txt" in zf.namelist():
+                            with open(os.path.join(dirpath, "SUBSTITUTIONS.txt"), "wb") as out_f:
+                                out_f.write(zf.read("SUBSTITUTIONS.txt"))
+                        for f in zf.infolist():
+                            dest_dir = os.path.join(submission_dir, assignment_working_dir)
+                            zf.extract(f, dest_dir)
+                            if not f.is_dir():
+                                perms = f.external_attr >> 16
+                                if perms:
+                                    os.chmod(os.path.join(dest_dir, f.filename), perms)
+            except Exception as e:
+                out = f"Problem extracting test files: {e}".encode('utf-8')
+                move_to_next_submission = True
 
         if not move_to_next_submission:
             # Mount the whole submission and cd to the working directory
